@@ -32,12 +32,20 @@ export default function ViewfinderPage() {
     };
   }, []);
 
+  const stopCamera = useCallback(() => {
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+      videoRef.current.srcObject = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (photoCount >= TOTAL_PHOTOS && !isRouting) {
       setIsRouting(true);
+      stopCamera();
       setTimeout(() => router.push("/darkroom"), 2000);
     }
-  }, [photoCount, isRouting, router]);
+  }, [photoCount, isRouting, router, stopCamera]);
 
   const handleShutter = useCallback(() => {
     if (!videoRef.current || photoCount >= TOTAL_PHOTOS || isFlashing) return;

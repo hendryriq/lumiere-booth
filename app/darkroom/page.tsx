@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, forwardRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore, LayoutType, FrameType } from "@/store/photobooth";
+import { applyAnalogFilter } from "@/lib/utils";
 
 const LAYOUTS: { id: LayoutType; label: string; description: string; icon: React.ReactNode }[] = [
   {
@@ -49,7 +50,7 @@ const FRAMES: { id: FrameType; label: string; description: string; color: string
 ];
 
 // --- Preview Canvas ---
-function PreviewCanvas() {
+const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) {
   const { photos, selectedLayout, selectedFrame } = usePhotoboothStore();
 
   const borderStyle = {
@@ -89,6 +90,7 @@ function PreviewCanvas() {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, padding: "40px" }}>
       <div
+        ref={ref}
         style={{
           backgroundColor: borderStyle.bg,
           padding: "16px",
@@ -141,7 +143,7 @@ function PreviewCanvas() {
       </div>
     </div>
   );
-}
+});
 
 // --- Sidebar ---
 function Sidebar() {
@@ -267,10 +269,11 @@ export default function DarkroomPage() {
       try {
         const html2canvas = (await import("html2canvas")).default;
         const canvas = await html2canvas(previewRef.current!, {
-          background: "#F4F1EA",
+          backgroundColor: "#F4F1EA",
           scale: 2,
           useCORS: true,
-        } as Parameters<typeof html2canvas>[1]);
+        });
+        applyAnalogFilter(canvas);
         const dataUrl = canvas.toDataURL("image/png");
         setFinalImageUrl(dataUrl);
         router.push("/print-tray");
@@ -307,8 +310,8 @@ export default function DarkroomPage() {
       {/* Body: sidebar + canvas */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar />
-        <div ref={previewRef} style={{ flex: 1, overflow: "auto", display: "flex" }}>
-          <PreviewCanvas />
+        <div style={{ flex: 1, overflow: "auto", display: "flex" }}>
+          <PreviewCanvas ref={previewRef} />
         </div>
       </div>
     </main>
