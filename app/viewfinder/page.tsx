@@ -29,7 +29,14 @@ export default function ViewfinderPage() {
     let activeStream: MediaStream | null = null;
 
     navigator.mediaDevices
-      .getUserMedia({ video: { width: 800, height: 600, facingMode: "user" } })
+      .getUserMedia({
+        video: {
+          width: { ideal: 800 },
+          height: { ideal: 600 },
+          aspectRatio: { ideal: 4 / 3 },
+          facingMode: "user",
+        },
+      })
       .then((stream) => {
         activeStream = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
