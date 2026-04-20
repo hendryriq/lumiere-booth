@@ -49,11 +49,8 @@ export function captureFrame(video: HTMLVideoElement, targetW = 800, targetH = 6
  * Apply grayscale + contrast filter to a canvas.
  * (Analog film look is mainly handled via CSS, but this can be used for export.)
  */
-export function applyAnalogFilter(canvas: HTMLCanvasElement, filterType: FilmFilterType = "ilford-hp5"): void {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+export function applyAnalogFilterRect(ctx: CanvasRenderingContext2D, filterType: FilmFilterType, x: number, y: number, w: number, h: number): void {
+  const imageData = ctx.getImageData(x, y, w, h);
   const data = imageData.data;
 
   for (let i = 0; i < data.length; i += 4) {
@@ -112,7 +109,13 @@ export function applyAnalogFilter(canvas: HTMLCanvasElement, filterType: FilmFil
     data[i + 2] = Math.max(0, Math.min(255, b));
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  ctx.putImageData(imageData, x, y);
+}
+
+export function applyAnalogFilter(canvas: HTMLCanvasElement, filterType: FilmFilterType = "ilford-hp5"): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  applyAnalogFilterRect(ctx, filterType, 0, 0, canvas.width, canvas.height);
 }
 
 /**
