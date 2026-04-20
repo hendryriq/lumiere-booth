@@ -8,19 +8,39 @@ export const FILTER_CSS: Record<FilmFilterType, string> = {
 
 /**
  * Capture a frame from a video element and return it as a base64 data URL.
+ * Applies cover-fit cropping so the result is always at targetW×targetH
+ * regardless of the camera's native resolution (mobile cameras are often 16:9).
  */
-export function captureFrame(video: HTMLVideoElement): string {
+export function captureFrame(video: HTMLVideoElement, targetW = 800, targetH = 600): string {
   const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth || 800;
-  canvas.height = video.videoHeight || 600;
+  canvas.width = targetW;
+  canvas.height = targetH;
 
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get canvas context");
 
+  const videoAspect = video.videoWidth / video.videoHeight;
+  const targetAspect = targetW / targetH;
+
+  // Cover-fit: compute the source rect that fills the target without stretching.
+  // This mirrors what CSS objectFit:"cover" does in the DOM preview.
+  let sx = 0, sy = 0, sw = video.videoWidth, sh = video.videoHeight;
+
+  if (videoAspect > targetAspect) {
+    // Video is wider than target — crop sides
+    sw = video.videoHeight * targetAspect;
+    sx = (video.videoWidth - sw) / 2;
+  } else if (videoAspect < targetAspect) {
+    // Video is taller than target — crop top & bottom
+    sh = video.videoWidth / targetAspect;
+    sy = (video.videoHeight - sh) / 2;
+  }
+
   // Flip horizontally (mirror effect for selfie)
   ctx.translate(canvas.width, 0);
   ctx.scale(-1, 1);
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // Draw cover-cropped video region onto fixed-size canvas
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
 
   return canvas.toDataURL("image/png");
 }

@@ -154,7 +154,22 @@ export default function PrintTrayPage() {
           ctx.save();
           ctx.translate(item.x + item.w, item.y);
           ctx.scale(-1, 1);
-          ctx.drawImage(item.v, 0, 0, item.w, item.h);
+
+          // Cover-fit: crop source video to fill target slot without stretching.
+          // Same logic as CSS objectFit:"cover" — mirrors what the DOM preview shows.
+          const vw = item.v.videoWidth;
+          const vh = item.v.videoHeight;
+          if (vw && vh) {
+            const scale = Math.max(item.w / vw, item.h / vh);
+            const sw = item.w / scale;
+            const sh = item.h / scale;
+            const sx = (vw - sw) / 2;
+            const sy = (vh - sh) / 2;
+            ctx.drawImage(item.v, sx, sy, sw, sh, 0, 0, item.w, item.h);
+          } else {
+            ctx.drawImage(item.v, 0, 0, item.w, item.h);
+          }
+
           ctx.restore();
         });
 
