@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, forwardRef } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore, LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
 import { applyAnalogFilter, FILTER_CSS } from "@/lib/utils";
+import { useIsMobile } from "@/lib/hooks";
 
 function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selectedFrame }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined, selectedFrame: string }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -106,8 +107,9 @@ const FRAMES: { id: FrameType; label: string; description: string; color: string
 ];
 
 // --- Preview Canvas ---
-const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) {
+function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
   const { photos, videos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
+  const isMobile = useIsMobile();
 
   const borderStyle = {
     "minimalist-mono": { bg: "#FFFFFF", border: "8px solid #FFFFFF", accent: "#1C1B1A" },
@@ -120,7 +122,7 @@ const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) 
   );
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, padding: "40px" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, padding: isMobile ? "24px 16px" : "40px" }}>
       <div
         ref={ref}
         style={{
@@ -175,20 +177,30 @@ const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) 
       </div>
     </div>
   );
-});
+}
 
-// --- Sidebar ---
+// --- Sidebar (Options Panel) ---
 function Sidebar() {
   const { selectedLayout, selectedFrame, setLayout, setFrame } = usePhotoboothStore();
   const [openSection, setOpenSection] = useState<"layouts" | "frames">("layouts");
+  const isMobile = useIsMobile();
 
   return (
-    <div style={{ width: "320px", flexShrink: 0, borderRight: "2px solid #1C1B1A", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column", overflowY: "auto" }}>
+    <div style={{
+      width: isMobile ? "100%" : "320px",
+      flexShrink: 0,
+      borderRight: isMobile ? "none" : "2px solid #1C1B1A",
+      borderTop: isMobile ? "2px solid #1C1B1A" : "none",
+      backgroundColor: "#F4F1EA",
+      display: "flex",
+      flexDirection: "column",
+      overflowY: isMobile ? "visible" : "auto",
+    }}>
       {/* Layouts section */}
       <div>
         <button
           onClick={() => setOpenSection(openSection === "layouts" ? "frames" : "layouts")}
-          style={{ width: "100%", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer" }}
+          style={{ width: "100%", padding: isMobile ? "16px 20px" : "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer", minHeight: "56px" }}
         >
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#1C1B1A" }}>
             01 — LAYOUT
@@ -199,15 +211,16 @@ function Sidebar() {
         </button>
 
         {openSection === "layouts" && (
-          <div style={{ padding: "16px" }}>
+          <div style={{ padding: isMobile ? "12px" : "16px", display: isMobile ? "flex" : "block", gap: isMobile ? "8px" : "0", overflowX: isMobile ? "auto" : "visible" }}>
             {LAYOUTS.map((layout) => (
               <button
                 key={layout.id}
                 onClick={() => setLayout(layout.id)}
                 style={{
-                  width: "100%",
-                  padding: "16px",
-                  marginBottom: "8px",
+                  width: isMobile ? "auto" : "100%",
+                  flexShrink: isMobile ? 0 : undefined,
+                  padding: isMobile ? "12px" : "16px",
+                  marginBottom: isMobile ? "0" : "8px",
                   display: "flex",
                   alignItems: "center",
                   gap: "16px",
@@ -217,13 +230,19 @@ function Sidebar() {
                   boxShadow: selectedLayout === layout.id ? "3px 3px 0 #1C1B1A" : "none",
                   textAlign: "left",
                   transition: "all 80ms",
+                  minHeight: "56px",
                 }}
               >
                 <div style={{ color: "#1C1B1A", flexShrink: 0 }}>{layout.icon}</div>
-                <div>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{layout.label}</div>
-                  <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{layout.description}</div>
-                </div>
+                {!isMobile && (
+                  <div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{layout.label}</div>
+                    <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{layout.description}</div>
+                  </div>
+                )}
+                {isMobile && (
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{layout.label}</div>
+                )}
               </button>
             ))}
           </div>
@@ -234,7 +253,7 @@ function Sidebar() {
       <div>
         <button
           onClick={() => setOpenSection(openSection === "frames" ? "layouts" : "frames")}
-          style={{ width: "100%", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer" }}
+          style={{ width: "100%", padding: isMobile ? "16px 20px" : "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer", minHeight: "56px" }}
         >
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#1C1B1A" }}>
             02 — CARD FRAME
@@ -245,45 +264,54 @@ function Sidebar() {
         </button>
 
         {openSection === "frames" && (
-          <div style={{ padding: "16px" }}>
+          <div style={{ padding: isMobile ? "12px" : "16px", display: isMobile ? "flex" : "block", gap: isMobile ? "8px" : "0", overflowX: isMobile ? "auto" : "visible" }}>
             {FRAMES.map((frame) => (
               <button
                 key={frame.id}
                 onClick={() => setFrame(frame.id)}
                 style={{
-                  width: "100%",
-                  padding: "16px",
-                  marginBottom: "8px",
+                  width: isMobile ? "auto" : "100%",
+                  flexShrink: isMobile ? 0 : undefined,
+                  padding: isMobile ? "12px" : "16px",
+                  marginBottom: isMobile ? "0" : "8px",
                   display: "flex",
                   alignItems: "center",
-                  gap: "16px",
+                  gap: "12px",
                   backgroundColor: selectedFrame === frame.id ? "#E5DCD0" : "#FFFFFF",
                   border: selectedFrame === frame.id ? "2px solid #1C1B1A" : "1px solid #A8A39B",
                   cursor: "pointer",
                   boxShadow: selectedFrame === frame.id ? "3px 3px 0 #1C1B1A" : "none",
                   textAlign: "left",
                   transition: "all 80ms",
+                  minHeight: "56px",
                 }}
               >
-                <div style={{ width: "32px", height: "32px", backgroundColor: frame.color, border: "1px solid #A8A39B", flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{frame.label}</div>
-                  <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{frame.description}</div>
-                </div>
+                <div style={{ width: "24px", height: "24px", backgroundColor: frame.color, border: "1px solid #A8A39B", flexShrink: 0 }} />
+                {!isMobile && (
+                  <div>
+                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{frame.label}</div>
+                    <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{frame.description}</div>
+                  </div>
+                )}
+                {isMobile && (
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{frame.label}</div>
+                )}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Film info at bottom */}
-      <div style={{ marginTop: "auto", padding: "24px", borderTop: "1px solid #E5DCD0" }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase", lineHeight: 2 }}>
-          <div>ROLL NO. 001</div>
-          <div>4 FRAMES EXPOSED</div>
-          <div>ISO 400 — 35MM</div>
+      {/* Film info */}
+      {!isMobile && (
+        <div style={{ marginTop: "auto", padding: "24px", borderTop: "1px solid #E5DCD0" }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase", lineHeight: 2 }}>
+            <div>ROLL NO. 001</div>
+            <div>4 FRAMES EXPOSED</div>
+            <div>ISO 400 — 35MM</div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -291,9 +319,9 @@ function Sidebar() {
 // --- Main Page ---
 export default function DarkroomPage() {
   const router = useRouter();
-  const { photos, selectedFilter } = usePhotoboothStore();
+  const { photos, selectedFilter, setFinalImageUrl } = usePhotoboothStore();
   const previewRef = useRef<HTMLDivElement>(null);
-  const { setFinalImageUrl } = usePhotoboothStore();
+  const isMobile = useIsMobile();
 
   const handleDevelop = async () => {
     // Use html2canvas to capture the preview
@@ -317,24 +345,47 @@ export default function DarkroomPage() {
   };
 
   return (
-    <main style={{ height: "100vh", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <main style={{
+      backgroundColor: "#F4F1EA",
+      display: "flex",
+      flexDirection: "column",
+      overflow: isMobile ? "auto" : "hidden",
+      height: isMobile ? "auto" : "100vh",
+      minHeight: "100vh",
+    }}>
       {/* Top header bar */}
-      <div style={{ height: "64px", borderBottom: "2px solid #1C1B1A", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-          <span style={{ fontFamily: "'Fraunces', serif", fontSize: "22px", color: "#1C1B1A", letterSpacing: "-0.01em" }}>LUMIÈRE BOOTH</span>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase" }}>/ THE DARKROOM</span>
+      <div style={{
+        minHeight: "64px",
+        borderBottom: "2px solid #1C1B1A",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: isMobile ? "12px 16px" : "0 32px",
+        flexShrink: 0,
+        flexWrap: isMobile ? "wrap" : "nowrap",
+        gap: "8px",
+        position: isMobile ? "sticky" : "static",
+        top: 0,
+        backgroundColor: "#F4F1EA",
+        zIndex: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "24px" }}>
+          <span style={{ fontFamily: "'Fraunces', serif", fontSize: isMobile ? "18px" : "22px", color: "#1C1B1A", letterSpacing: "-0.01em" }}>LUMIÈRE BOOTH</span>
+          {!isMobile && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase" }}>/ THE DARKROOM</span>}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            {photos.length}/4 FRAMES LOADED
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "16px" }}>
+          {!isMobile && (
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              {photos.length}/4 FRAMES LOADED
+            </span>
+          )}
           <button
             onClick={() => {
               usePhotoboothStore.getState().clearPhotos();
               router.push("/viewfinder");
             }}
-            style={{ height: "40px", padding: "0 16px", backgroundColor: "transparent", border: "1px solid #A8A39B", color: "#A8A39B", fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", transition: "color 150ms, border-color 150ms" }}
+            style={{ height: isMobile ? "40px" : "40px", padding: "0 16px", backgroundColor: "transparent", border: "1px solid #A8A39B", color: "#A8A39B", fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", transition: "color 150ms, border-color 150ms" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "#1C1B1A"; e.currentTarget.style.borderColor = "#1C1B1A"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = "#A8A39B"; e.currentTarget.style.borderColor = "#A8A39B"; }}
           >
@@ -343,19 +394,37 @@ export default function DarkroomPage() {
           <button
             onClick={handleDevelop}
             className="btn-press"
-            style={{ height: "40px", padding: "0 24px", backgroundColor: "#D24B36", border: "2px solid #1C1B1A", color: "#FFFFFF", fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", boxShadow: "3px 3px 0 #1C1B1A" }}
+            style={{ height: isMobile ? "40px" : "40px", padding: "0 24px", backgroundColor: "#D24B36", border: "2px solid #1C1B1A", color: "#FFFFFF", fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", boxShadow: "3px 3px 0 #1C1B1A" }}
           >
             PRINTS →
           </button>
         </div>
       </div>
 
-      {/* Body: sidebar + canvas */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <Sidebar />
-        <div style={{ flex: 1, overflow: "auto", display: "flex" }}>
-          <PreviewCanvas ref={previewRef} />
-        </div>
+      {/* Body: sidebar + canvas — stacked vertically on mobile */}
+      <div style={{
+        display: "flex",
+        flex: 1,
+        overflow: isMobile ? "visible" : "hidden",
+        flexDirection: isMobile ? "column" : "row",
+      }}>
+        {isMobile ? (
+          // Mobile: Canvas first, then options below
+          <>
+            <div style={{ display: "flex" }}>
+              <PreviewCanvas ref={previewRef} />
+            </div>
+            <Sidebar />
+          </>
+        ) : (
+          // Desktop: Sidebar left, canvas right
+          <>
+            <Sidebar />
+            <div style={{ flex: 1, overflow: "auto", display: "flex" }}>
+              <PreviewCanvas ref={previewRef} />
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

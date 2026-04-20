@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore } from "@/store/photobooth";
 import { downloadImage, FILTER_CSS } from "@/lib/utils";
-import { useRef } from "react";
+import { useIsMobile } from "@/lib/hooks";
 
 function PhotoFrame({ index, style, filterCss, photoUrl, videoUrl }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -55,6 +55,7 @@ export default function PrintTrayPage() {
   const { finalImageUrl, photos, videos, selectedLayout, selectedFrame, selectedFilter, resetSession } = usePhotoboothStore();
   const [isDeveloped, setIsDeveloped] = useState(false);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const t = setTimeout(() => setIsDeveloped(true), 3100);
@@ -218,7 +219,7 @@ export default function PrintTrayPage() {
   );
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column", alignItems: "center", position: "relative", overflow: "auto", paddingTop: "80px" }}>
+    <main style={{ minHeight: "100vh", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column", alignItems: "center", position: "relative", overflow: "auto", paddingTop: isMobile ? "48px" : "80px", paddingBottom: "60px" }}>
 
       {/* Progress bar at top */}
       {!isDeveloped && (
@@ -228,7 +229,7 @@ export default function PrintTrayPage() {
       )}
 
       {/* Main Content Area */}
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "80px", maxWidth: "1200px", width: "100%", zIndex: 10 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: isMobile ? "32px" : "80px", maxWidth: "1200px", width: "100%", zIndex: 10, padding: isMobile ? "0 16px" : "0" }}>
         
         {/* The Print */}
         <div
@@ -291,11 +292,11 @@ export default function PrintTrayPage() {
           {/* Action buttons */}
           {isDeveloped && (
             <div className="fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "20px" }}>
-              <div style={{ display: "flex", gap: "16px" }}>
+              <div style={{ display: "flex", gap: "16px", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
                 <button
                   onClick={handleDownload}
                   className="btn-press shadow-hard"
-                  style={{ height: "52px", padding: "0 24px", backgroundColor: "#FFFFFF", border: "2px solid #1C1B1A", color: "#1C1B1A", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}
+                  style={{ height: "52px", padding: "0 24px", backgroundColor: "#FFFFFF", border: "2px solid #1C1B1A", color: "#1C1B1A", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", flex: isMobile ? 1 : "none" }}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M8 2v9M5 8l3 3 3-3M2 13h12" />
@@ -307,7 +308,7 @@ export default function PrintTrayPage() {
                   onClick={exportMotionLayout}
                   disabled={isExportingVideo}
                   className="btn-press shadow-hard"
-                  style={{ height: "52px", padding: "0 24px", backgroundColor: isExportingVideo ? "#555" : "#E5DCD0", border: `2px solid ${isExportingVideo ? "#555" : "#1C1B1A"}`, color: isExportingVideo ? "#A8A39B" : "#1C1B1A", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: isExportingVideo ? "default" : "pointer", display: "flex", alignItems: "center", gap: "10px", transition: "all 150ms" }}
+                  style={{ height: "52px", padding: "0 24px", backgroundColor: isExportingVideo ? "#555" : "#E5DCD0", border: `2px solid ${isExportingVideo ? "#555" : "#1C1B1A"}`, color: isExportingVideo ? "#A8A39B" : "#1C1B1A", fontFamily: "'Space Mono', monospace", fontSize: isMobile ? "11px" : "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: isExportingVideo ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", transition: "all 150ms", flex: isMobile ? 1 : "none" }}
                 >
                   {isExportingVideo ? (
                     <span className="blink">RENDERING...</span>
@@ -326,7 +327,7 @@ export default function PrintTrayPage() {
               <button
                 onClick={() => handleRestart("/viewfinder")}
                 className="btn-press shadow-hard"
-                style={{ height: "52px", padding: "0 32px", backgroundColor: "#1C1B1A", border: "2px solid #1C1B1A", color: "#F4F1EA", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}
+                style={{ height: "52px", padding: "0 32px", backgroundColor: "#1C1B1A", border: "2px solid #1C1B1A", color: "#F4F1EA", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", width: isMobile ? "100%" : "auto" }}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="8" cy="8" r="6" />
