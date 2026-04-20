@@ -2,8 +2,8 @@
 
 import { useRef, useState, forwardRef } from "react";
 import { useRouter } from "next/navigation";
-import { usePhotoboothStore, LayoutType, FrameType } from "@/store/photobooth";
-import { applyAnalogFilter } from "@/lib/utils";
+import { usePhotoboothStore, LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
+import { applyAnalogFilter, FILTER_CSS } from "@/lib/utils";
 
 const LAYOUTS: { id: LayoutType; label: string; description: string; icon: React.ReactNode }[] = [
   {
@@ -51,7 +51,7 @@ const FRAMES: { id: FrameType; label: string; description: string; color: string
 
 // --- Preview Canvas ---
 const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) {
-  const { photos, selectedLayout, selectedFrame } = usePhotoboothStore();
+  const { photos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
 
   const borderStyle = {
     "minimalist-mono": { bg: "#FFFFFF", border: "8px solid #FFFFFF", accent: "#1C1B1A" },
@@ -75,7 +75,7 @@ const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) 
         <img
           src={photos[index]}
           alt={`Photo ${index + 1}`}
-          style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(100%) contrast(1.1)" }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", filter: FILTER_CSS[selectedFilter] }}
         />
       ) : (
         <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #444" }}>
@@ -259,7 +259,7 @@ function Sidebar() {
 // --- Main Page ---
 export default function DarkroomPage() {
   const router = useRouter();
-  const { photos } = usePhotoboothStore();
+  const { photos, selectedFilter } = usePhotoboothStore();
   const previewRef = useRef<HTMLDivElement>(null);
   const { setFinalImageUrl } = usePhotoboothStore();
 
@@ -273,7 +273,7 @@ export default function DarkroomPage() {
           scale: 2,
           useCORS: true,
         });
-        applyAnalogFilter(canvas);
+        applyAnalogFilter(canvas, selectedFilter);
         const dataUrl = canvas.toDataURL("image/png");
         setFinalImageUrl(dataUrl);
         router.push("/print-tray");
@@ -297,6 +297,14 @@ export default function DarkroomPage() {
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
             {photos.length}/4 FRAMES LOADED
           </span>
+          <button
+            onClick={() => router.push("/viewfinder")}
+            style={{ height: "40px", padding: "0 16px", backgroundColor: "transparent", border: "1px solid #A8A39B", color: "#A8A39B", fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", transition: "color 150ms, border-color 150ms" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#1C1B1A"; e.currentTarget.style.borderColor = "#1C1B1A"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#A8A39B"; e.currentTarget.style.borderColor = "#A8A39B"; }}
+          >
+            ↩ RETAKE
+          </button>
           <button
             onClick={handleDevelop}
             className="btn-press"
