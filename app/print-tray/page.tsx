@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore } from "@/store/photobooth";
-import { downloadImage, FILTER_CSS } from "@/lib/utils";
+import { downloadImage, FILTER_CSS, applyAnalogFilterRect } from "@/lib/utils";
 import { useIsMobile } from "@/lib/hooks";
 
 function PhotoFrame({ index, style, filterCss, photoUrl, videoUrl }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined }) {
@@ -148,8 +148,6 @@ export default function PrintTrayPage() {
         ctx.fillStyle = frameConfig.bg;
         ctx.fillRect(0, 0, cw, ch);
         
-        ctx.filter = FILTER_CSS[selectedFilter] || "none";
-        
         drawItems.forEach(item => {
           ctx.save();
           ctx.translate(item.x + item.w, item.y);
@@ -160,9 +158,9 @@ export default function PrintTrayPage() {
           const vw = item.v.videoWidth;
           const vh = item.v.videoHeight;
           if (vw && vh) {
-            const scale = Math.max(item.w / vw, item.h / vh);
-            const sw = item.w / scale;
-            const sh = item.h / scale;
+            const scaleFactor = Math.max(item.w / vw, item.h / vh);
+            const sw = item.w / scaleFactor;
+            const sh = item.h / scaleFactor;
             const sx = (vw - sw) / 2;
             const sy = (vh - sh) / 2;
             ctx.drawImage(item.v, sx, sy, sw, sh, 0, 0, item.w, item.h);
@@ -171,9 +169,18 @@ export default function PrintTrayPage() {
           }
 
           ctx.restore();
+
+          // Apply analog filter directly on pixels to fix Safari/iOS ignoring ctx.filter
+          applyAnalogFilterRect(
+            ctx, 
+            selectedFilter, 
+            Math.floor(item.x * scale), 
+            Math.floor(item.y * scale), 
+            Math.ceil(item.w * scale), 
+            Math.ceil(item.h * scale)
+          );
         });
 
-        ctx.filter = "none";
         if (selectedFrame === "stamp-border") {
           ctx.strokeStyle = "#A8A39B";
           ctx.setLineDash([4, 4]);
