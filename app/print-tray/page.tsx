@@ -3,12 +3,58 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore } from "@/store/photobooth";
-import { downloadImage } from "@/lib/utils";
+import { downloadImage, FILTER_CSS } from "@/lib/utils";
+import { useRef } from "react";
+
+function PhotoFrame({ index, style, filterCss, photoUrl, videoUrl }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (videoRef.current) videoRef.current.play().catch(() => {});
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
+  return (
+    <div 
+      style={{ ...style, backgroundColor: "#1C1B1A", overflow: "hidden", position: "relative", cursor: videoUrl ? "pointer" : "default" }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {photoUrl ? (
+        <>
+          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease" }} />
+          {videoUrl && (
+            <video 
+              ref={videoRef}
+              src={videoUrl} 
+              muted 
+              loop 
+              playsInline 
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 2, opacity: isHovered ? 1 : 0, transition: "opacity 300ms ease", transform: "scaleX(-1)" }} 
+            />
+          )}
+        </>
+      ) : (
+        <div style={{ width: "100%", height: "100%", backgroundColor: "#1C1B1A" }} />
+      )}
+    </div>
+  );
+}
 
 export default function PrintTrayPage() {
   const router = useRouter();
-  const { finalImageUrl, photos, selectedLayout, selectedFrame, resetSession } = usePhotoboothStore();
+  const { finalImageUrl, photos, videos, selectedLayout, selectedFrame, selectedFilter, resetSession } = usePhotoboothStore();
   const [isDeveloped, setIsDeveloped] = useState(false);
+  const [isExportingVideo, setIsExportingVideo] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setIsDeveloped(true), 3100);
@@ -19,14 +65,145 @@ export default function PrintTrayPage() {
     if (finalImageUrl) {
       downloadImage(finalImageUrl, `lumiere-booth-${Date.now()}.png`);
     } else {
-      // Fallback: alert if no image
-      alert("No image to download. Please go back and develop your prints.");
+      alert("No image to download");
     }
   };
 
-  const handleRestart = () => {
+  const exportMotionLayout = async () => {
+    if (!videos || !videos.length) return alert("No motion clips to export.");
+    setIsExportingVideo(true);
+
+    try {
+      // 1. Create hidden video players
+      const videoElements = videos.map(src => {
+        const v = document.createElement("video");
+        v.src = src;
+        v.muted = true;
+        v.playsInline = true;
+        v.crossOrigin = "anonymous";
+        v.loop = true;
+        return v;
+      });
+      await Promise.all(videoElements.map(v => v.play().catch(() => {})));
+
+      // 2. Setup canvas
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("No 2d context");
+
+      const frameConfig = {
+        "minimalist-mono": { bg: "#FFFFFF", text: "#1C1B1A" },
+        "vintage-floral": { bg: "#E5DCD0", text: "#8B6F47" },
+        "stamp-border": { bg: "#F4F1EA", text: "#1C1B1A" },
+      }[selectedFrame];
+
+      let cw = 0, ch = 0;
+      const drawItems: { v: HTMLVideoElement, x: number, y: number, w: number, h: number }[] = [];
+      const textItems: { text: string, font: string, x: number, y: number, color: string }[] = [];
+
+      const copyright = `LUMIÈRE BOOTH — ${new Date().getFullYear()}`;
+
+      if (selectedLayout === "strip-1x4") {
+        cw = 232; ch = 675;
+        for (let i = 0; i < 4; i++) {
+          if (videoElements[i]) drawItems.push({ v: videoElements[i], x: 16, y: 16 + i * (150 + 6), w: 200, h: 150 });
+        }
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
+      } else if (selectedLayout === "grid-2x2") {
+        cw = 392; ch = 413;
+        if (videoElements[0]) drawItems.push({ v: videoElements[0], x: 16, y: 16, w: 177, h: 175 });
+        if (videoElements[1]) drawItems.push({ v: videoElements[1], x: 16 + 177 + 6, y: 16, w: 177, h: 175 });
+        if (videoElements[2]) drawItems.push({ v: videoElements[2], x: 16, y: 16 + 175 + 6, w: 177, h: 175 });
+        if (videoElements[3]) drawItems.push({ v: videoElements[3], x: 16 + 177 + 6, y: 16 + 175 + 6, w: 177, h: 175 });
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
+      } else if (selectedLayout === "polaroid-single") {
+        cw = 312; ch = 352;
+        if (videoElements[0]) drawItems.push({ v: videoElements[0], x: 16, y: 16, w: 280, h: 280 });
+        textItems.push({ text: "LUMIÈRE", font: "18px 'Fraunces', serif", x: cw / 2, y: ch - 18, color: frameConfig.text });
+      }
+
+      const scale = 2;
+      canvas.width = cw * scale;
+      canvas.height = ch * scale;
+      ctx.scale(scale, scale);
+
+      const stream = canvas.captureStream(30);
+      let mimeType = 'video/webm';
+      let extension = 'webm';
+      if (MediaRecorder.isTypeSupported('video/mp4')) {
+        mimeType = 'video/mp4';
+        extension = 'mp4';
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+        mimeType = 'video/webm;codecs=vp9';
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2500000 });
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+      let animationId: number;
+
+      const drawLoop = () => {
+        ctx.fillStyle = frameConfig.bg;
+        ctx.fillRect(0, 0, cw, ch);
+        
+        ctx.filter = FILTER_CSS[selectedFilter] || "none";
+        
+        drawItems.forEach(item => {
+          ctx.save();
+          ctx.translate(item.x + item.w, item.y);
+          ctx.scale(-1, 1);
+          ctx.drawImage(item.v, 0, 0, item.w, item.h);
+          ctx.restore();
+        });
+
+        ctx.filter = "none";
+        if (selectedFrame === "stamp-border") {
+          ctx.strokeStyle = "#A8A39B";
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1.5;
+          drawItems.forEach(item => {
+            ctx.strokeRect(item.x - 2, item.y - 2, item.w + 4, item.h + 4);
+          });
+        }
+
+        ctx.textAlign = "center";
+        
+        textItems.forEach(item => {
+          ctx.fillStyle = item.color;
+          ctx.font = item.font;
+          ctx.globalAlpha = 0.6;
+          ctx.fillText(item.text, item.x, item.y);
+          ctx.globalAlpha = 1.0;
+        });
+
+        animationId = requestAnimationFrame(drawLoop);
+      };
+
+      drawLoop();
+      recorder.start();
+
+      setTimeout(() => {
+        recorder.onstop = () => {
+          cancelAnimationFrame(animationId);
+          videoElements.forEach(v => v.pause());
+          const blob = new Blob(chunks, { type: mimeType });
+          downloadImage(URL.createObjectURL(blob), `lumiere-motion-layout-${Date.now()}.${extension}`);
+          setIsExportingVideo(false);
+        };
+        recorder.stop();
+      }, 10000);
+
+    } catch (e) {
+      console.error(e);
+      alert("Failed to export motion layout");
+      setIsExportingVideo(false);
+    }
+  };
+
+  const handleRestart = (destination: string = "/") => {
     resetSession();
-    router.push("/");
+    router.push(destination);
   };
 
   // Reconstruct preview if finalImageUrl is null (fallback)
@@ -37,17 +214,11 @@ export default function PrintTrayPage() {
   }[selectedFrame];
 
   const renderPhoto = (index: number, style: React.CSSProperties) => (
-    <div key={index} style={{ ...style, backgroundColor: "#1C1B1A", overflow: "hidden" }}>
-      {photos[index] ? (
-        <img src={photos[index]} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(100%) contrast(1.1)" }} />
-      ) : (
-        <div style={{ width: "100%", height: "100%", backgroundColor: "#1C1B1A" }} />
-      )}
-    </div>
+    <PhotoFrame key={index} index={index} style={style} filterCss={FILTER_CSS[selectedFilter]} photoUrl={photos[index]} videoUrl={videos[index]} />
   );
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+    <main style={{ minHeight: "100vh", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column", alignItems: "center", position: "relative", overflow: "auto", paddingTop: "80px" }}>
 
       {/* Progress bar at top */}
       {!isDeveloped && (
@@ -56,38 +227,18 @@ export default function PrintTrayPage() {
         </div>
       )}
 
-      {/* Drying rack wires decoration */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "80px", pointerEvents: "none" }}>
-        <div style={{ position: "absolute", top: "40px", left: 0, right: 0, height: "1px", backgroundColor: "#A8A39B", opacity: 0.4 }} />
-        {/* Clothespins */}
-        {[20, 40, 60, 80].map((pct) => (
-          <div key={pct} style={{ position: "absolute", top: "32px", left: `${pct}%`, width: "8px", height: "18px", backgroundColor: "#A8A39B", opacity: 0.35 }} />
-        ))}
-      </div>
-
-      {/* The Print */}
-      <div
-        className={isDeveloped ? "" : "develop-animation"}
-        style={{
-          transform: "rotate(-1.5deg)",
-          boxShadow: "8px 8px 0px 0px rgba(28,27,26,0.85)",
-          marginTop: "60px",
-          marginBottom: "40px",
-        }}
-      >
-        {finalImageUrl ? (
-          <div style={{ backgroundColor: borderStyle.bg, padding: "16px" }}>
-            <img
-              src={finalImageUrl}
-              alt="Your photobooth strip"
-              style={{ display: "block", maxHeight: "60vh", maxWidth: "80vw", objectFit: "contain" }}
-            />
-            <div style={{ textAlign: "center", padding: "8px 0 4px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
-            </div>
-          </div>
-        ) : (
-          /* Fallback: reconstruct the strip inline */
+      {/* Main Content Area */}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "80px", maxWidth: "1200px", width: "100%", zIndex: 10 }}>
+        
+        {/* The Print */}
+        <div
+          className={isDeveloped ? "" : "develop-animation"}
+          style={{
+            transform: "rotate(-1.5deg)",
+            boxShadow: "8px 8px 0px 0px rgba(28,27,26,0.85)",
+            marginBottom: "40px",
+          }}
+        >
           <div style={{ backgroundColor: borderStyle.bg, padding: "16px" }}>
             {selectedLayout === "strip-1x4" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "200px" }}>
@@ -116,50 +267,77 @@ export default function PrintTrayPage() {
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* Status text */}
-      <div style={{ textAlign: "center", marginBottom: "32px" }}>
-        {!isDeveloped ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-              PRINT DEVELOPING
-            </span>
-            <span className="blink" style={{ color: "#D24B36", fontFamily: "'Space Mono', monospace" }}>_</span>
-          </div>
-        ) : (
-          <div className="fade-in">
-            <p style={{ fontFamily: "'Lora', serif", fontSize: "16px", color: "#A8A39B", margin: "0 0 8px" }}>Your memories are ready.</p>
-            <p style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", margin: 0 }}>HANDLE WITH CARE — DO NOT EXPOSE TO LIGHT</p>
-          </div>
-        )}
-      </div>
-
-      {/* Action buttons */}
-      {isDeveloped && (
-        <div className="fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
-          <button
-            onClick={handleDownload}
-            className="btn-press shadow-hard"
-            style={{ height: "52px", padding: "0 32px", backgroundColor: "#FFFFFF", border: "2px solid #1C1B1A", color: "#1C1B1A", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M8 2v9M5 8l3 3 3-3M2 13h12" />
-            </svg>
-            SAVE TO ARCHIVE
-          </button>
-
-          <button
-            onClick={handleRestart}
-            style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase", textDecoration: "underline", padding: "4px 0" }}
-            onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.color = "#D24B36"; }}
-            onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.color = "#A8A39B"; }}
-          >
-            ↩ SHOOT ANOTHER ROLL
-          </button>
         </div>
-      )}
+
+        {/* Right Side: Status and Actions */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "40px" }}>
+          {/* Status text */}
+          <div>
+            {!isDeveloped ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  PRINT
+                </span>
+                <span className="blink" style={{ color: "#D24B36", fontFamily: "'Space Mono', monospace" }}>_</span>
+              </div>
+            ) : (
+              <div className="fade-in">
+                <p style={{ fontFamily: "'Lora', serif", fontSize: "16px", color: "#A8A39B", margin: "0 0 8px" }}>Your memories are ready.</p>
+                <p style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", margin: 0 }}>HANDLE WITH CARE — DO NOT EXPOSE TO LIGHT</p>
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          {isDeveloped && (
+            <div className="fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "20px" }}>
+              <div style={{ display: "flex", gap: "16px" }}>
+                <button
+                  onClick={handleDownload}
+                  className="btn-press shadow-hard"
+                  style={{ height: "52px", padding: "0 24px", backgroundColor: "#FFFFFF", border: "2px solid #1C1B1A", color: "#1C1B1A", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M8 2v9M5 8l3 3 3-3M2 13h12" />
+                  </svg>
+                  SAVE PNG
+                </button>
+
+                <button
+                  onClick={exportMotionLayout}
+                  disabled={isExportingVideo}
+                  className="btn-press shadow-hard"
+                  style={{ height: "52px", padding: "0 24px", backgroundColor: isExportingVideo ? "#555" : "#E5DCD0", border: `2px solid ${isExportingVideo ? "#555" : "#1C1B1A"}`, color: isExportingVideo ? "#A8A39B" : "#1C1B1A", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: isExportingVideo ? "default" : "pointer", display: "flex", alignItems: "center", gap: "10px", transition: "all 150ms" }}
+                >
+                  {isExportingVideo ? (
+                    <span className="blink">RENDERING...</span>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="m10 8-4 3V5l4 3Z" />
+                        <circle cx="8" cy="8" r="6" />
+                      </svg>
+                      SAVE MOTION (MP4/WEBM)
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <button
+                onClick={() => handleRestart("/viewfinder")}
+                className="btn-press shadow-hard"
+                style={{ height: "52px", padding: "0 32px", backgroundColor: "#1C1B1A", border: "2px solid #1C1B1A", color: "#F4F1EA", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="8" cy="8" r="6" />
+                  <circle cx="8" cy="8" r="2.5" fill="currentColor" stroke="none" />
+                </svg>
+                NEW ROLL
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Bottom film strip decoration */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "32px", backgroundColor: "#1C1B1A", display: "flex", alignItems: "center", padding: "0 8px", gap: "8px", overflow: "hidden" }}>

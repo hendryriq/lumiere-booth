@@ -1,8 +1,65 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, forwardRef } from "react";
 import { useRouter } from "next/navigation";
-import { usePhotoboothStore, LayoutType, FrameType } from "@/store/photobooth";
+import { usePhotoboothStore, LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
+import { applyAnalogFilter, FILTER_CSS } from "@/lib/utils";
+
+function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selectedFrame }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined, selectedFrame: string }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (videoRef.current) videoRef.current.play().catch(() => {});
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
+  return (
+    <div 
+      style={{
+        ...style,
+        backgroundColor: "#1C1B1A",
+        overflow: "hidden",
+        position: "relative",
+        cursor: videoUrl ? "pointer" : "default",
+        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : "none",
+        outlineOffset: "-4px",
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {photoUrl ? (
+        <>
+          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease" }} />
+          {videoUrl && (
+            <video 
+              ref={videoRef}
+              src={videoUrl} 
+              muted 
+              loop 
+              playsInline 
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 2, opacity: isHovered ? 1 : 0, transition: "opacity 300ms ease", transform: "scaleX(-1)" }} 
+            />
+          )}
+        </>
+      ) : (
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #444", position: "absolute", inset: 0 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
+            DRAG NEGATIVE<br/>HERE
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const LAYOUTS: { id: LayoutType; label: string; description: string; icon: React.ReactNode }[] = [
   {
@@ -49,8 +106,8 @@ const FRAMES: { id: FrameType; label: string; description: string; color: string
 ];
 
 // --- Preview Canvas ---
-function PreviewCanvas() {
-  const { photos, selectedLayout, selectedFrame } = usePhotoboothStore();
+const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) {
+  const { photos, videos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
 
   const borderStyle = {
     "minimalist-mono": { bg: "#FFFFFF", border: "8px solid #FFFFFF", accent: "#1C1B1A" },
@@ -59,36 +116,13 @@ function PreviewCanvas() {
   }[selectedFrame];
 
   const renderPhoto = (index: number, style: React.CSSProperties) => (
-    <div
-      key={index}
-      style={{
-        ...style,
-        backgroundColor: "#1C1B1A",
-        overflow: "hidden",
-        position: "relative",
-        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : "none",
-        outlineOffset: "-4px",
-      }}
-    >
-      {photos[index] ? (
-        <img
-          src={photos[index]}
-          alt={`Photo ${index + 1}`}
-          style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(100%) contrast(1.1)" }}
-        />
-      ) : (
-        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #444" }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            DRAG NEGATIVE HERE
-          </span>
-        </div>
-      )}
-    </div>
+    <DarkroomPhotoFrame key={index} index={index} style={style} filterCss={FILTER_CSS[selectedFilter]} photoUrl={photos[index]} videoUrl={videos[index]} selectedFrame={selectedFrame} />
   );
 
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, padding: "40px" }}>
       <div
+        ref={ref}
         style={{
           backgroundColor: borderStyle.bg,
           padding: "16px",
@@ -141,7 +175,7 @@ function PreviewCanvas() {
       </div>
     </div>
   );
-}
+});
 
 // --- Sidebar ---
 function Sidebar() {
@@ -257,7 +291,7 @@ function Sidebar() {
 // --- Main Page ---
 export default function DarkroomPage() {
   const router = useRouter();
-  const { photos } = usePhotoboothStore();
+  const { photos, selectedFilter } = usePhotoboothStore();
   const previewRef = useRef<HTMLDivElement>(null);
   const { setFinalImageUrl } = usePhotoboothStore();
 
@@ -267,10 +301,11 @@ export default function DarkroomPage() {
       try {
         const html2canvas = (await import("html2canvas")).default;
         const canvas = await html2canvas(previewRef.current!, {
-          background: "#F4F1EA",
+          backgroundColor: "#F4F1EA",
           scale: 2,
           useCORS: true,
-        } as Parameters<typeof html2canvas>[1]);
+        });
+        applyAnalogFilter(canvas, selectedFilter);
         const dataUrl = canvas.toDataURL("image/png");
         setFinalImageUrl(dataUrl);
         router.push("/print-tray");
@@ -295,11 +330,22 @@ export default function DarkroomPage() {
             {photos.length}/4 FRAMES LOADED
           </span>
           <button
+            onClick={() => {
+              usePhotoboothStore.getState().clearPhotos();
+              router.push("/viewfinder");
+            }}
+            style={{ height: "40px", padding: "0 16px", backgroundColor: "transparent", border: "1px solid #A8A39B", color: "#A8A39B", fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", transition: "color 150ms, border-color 150ms" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#1C1B1A"; e.currentTarget.style.borderColor = "#1C1B1A"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#A8A39B"; e.currentTarget.style.borderColor = "#A8A39B"; }}
+          >
+            ↩ RETAKE
+          </button>
+          <button
             onClick={handleDevelop}
             className="btn-press"
             style={{ height: "40px", padding: "0 24px", backgroundColor: "#D24B36", border: "2px solid #1C1B1A", color: "#FFFFFF", fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", boxShadow: "3px 3px 0 #1C1B1A" }}
           >
-            DEVELOP PRINTS →
+            PRINTS →
           </button>
         </div>
       </div>
@@ -307,8 +353,8 @@ export default function DarkroomPage() {
       {/* Body: sidebar + canvas */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar />
-        <div ref={previewRef} style={{ flex: 1, overflow: "auto", display: "flex" }}>
-          <PreviewCanvas />
+        <div style={{ flex: 1, overflow: "auto", display: "flex" }}>
+          <PreviewCanvas ref={previewRef} />
         </div>
       </div>
     </main>
