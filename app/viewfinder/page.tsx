@@ -16,8 +16,11 @@ export default function ViewfinderPage() {
   const [isAutoShooting, setIsAutoShooting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [timerDuration, setTimerDuration] = useState<number>(3);
-  const { photos, addPhoto, clearPhotos, selectedFilter, setFilter } = usePhotoboothStore();
+  const { photos, addPhoto, addVideo, clearPhotos, selectedFilter, setFilter } = usePhotoboothStore();
   const photoCount = photos.length;
+  
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
 
   useEffect(() => {
     clearPhotos();
@@ -45,7 +48,7 @@ export default function ViewfinderPage() {
   useEffect(() => {
     if (photoCount >= TOTAL_PHOTOS && !isRouting) {
       setIsRouting(true);
-      stopCamera();
+      setTimeout(() => stopCamera(), 600); // Wait for the final 0.5s recording to finish
       setTimeout(() => router.push("/darkroom"), 2000);
     }
   }, [photoCount, isRouting, router, stopCamera]);
@@ -66,6 +69,30 @@ export default function ViewfinderPage() {
       return;
     }
 
+    if (countdown === 2 && videoRef.current && videoRef.current.srcObject) {
+      setTimeout(() => {
+        try {
+          const stream = videoRef.current!.srcObject as MediaStream;
+          let mimeType = 'video/webm';
+          if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) mimeType = 'video/webm;codecs=vp9';
+          else if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';
+
+          const recorder = new MediaRecorder(stream, { mimeType });
+          recorderRef.current = recorder;
+          chunksRef.current = [];
+          recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); }
+          recorder.onstop = () => {
+            const mime = recorder.mimeType || "video/webm";
+            const blob = new Blob(chunksRef.current, { type: mime });
+            addVideo(URL.createObjectURL(blob));
+          };
+          recorder.start();
+        } catch (err) {
+          console.error("Failed to start MediaRecorder", err);
+        }
+      }, 500); // 1.5s before shutter
+    }
+
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
@@ -74,8 +101,15 @@ export default function ViewfinderPage() {
     if (countdown === 0) {
       takePhoto();
       setCountdown(null);
+
+      // 0.5s after shutter
+      setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state === "recording") {
+          recorderRef.current.stop();
+        }
+      }, 500);
     }
-  }, [isAutoShooting, photoCount, countdown, takePhoto, timerDuration]);
+  }, [isAutoShooting, photoCount, countdown, takePhoto, timerDuration, addVideo]);
 
   return (
     <main style={{ minHeight: "100vh", backgroundColor: "#1C1B1A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>

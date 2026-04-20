@@ -5,6 +5,62 @@ import { useRouter } from "next/navigation";
 import { usePhotoboothStore, LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
 import { applyAnalogFilter, FILTER_CSS } from "@/lib/utils";
 
+function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selectedFrame }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined, selectedFrame: string }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (videoRef.current) videoRef.current.play().catch(() => {});
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
+  return (
+    <div 
+      style={{
+        ...style,
+        backgroundColor: "#1C1B1A",
+        overflow: "hidden",
+        position: "relative",
+        cursor: videoUrl ? "pointer" : "default",
+        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : "none",
+        outlineOffset: "-4px",
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {photoUrl ? (
+        <>
+          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease" }} />
+          {videoUrl && (
+            <video 
+              ref={videoRef}
+              src={videoUrl} 
+              muted 
+              loop 
+              playsInline 
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 2, opacity: isHovered ? 1 : 0, transition: "opacity 300ms ease", transform: "scaleX(-1)" }} 
+            />
+          )}
+        </>
+      ) : (
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #444", position: "absolute", inset: 0 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
+            DRAG NEGATIVE<br/>HERE
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LAYOUTS: { id: LayoutType; label: string; description: string; icon: React.ReactNode }[] = [
   {
     id: "strip-1x4",
@@ -51,7 +107,7 @@ const FRAMES: { id: FrameType; label: string; description: string; color: string
 
 // --- Preview Canvas ---
 const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) {
-  const { photos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
+  const { photos, videos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
 
   const borderStyle = {
     "minimalist-mono": { bg: "#FFFFFF", border: "8px solid #FFFFFF", accent: "#1C1B1A" },
@@ -60,31 +116,7 @@ const PreviewCanvas = forwardRef<HTMLDivElement>(function PreviewCanvas(_, ref) 
   }[selectedFrame];
 
   const renderPhoto = (index: number, style: React.CSSProperties) => (
-    <div
-      key={index}
-      style={{
-        ...style,
-        backgroundColor: "#1C1B1A",
-        overflow: "hidden",
-        position: "relative",
-        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : "none",
-        outlineOffset: "-4px",
-      }}
-    >
-      {photos[index] ? (
-        <img
-          src={photos[index]}
-          alt={`Photo ${index + 1}`}
-          style={{ width: "100%", height: "100%", objectFit: "cover", filter: FILTER_CSS[selectedFilter] }}
-        />
-      ) : (
-        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #444" }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            DRAG NEGATIVE HERE
-          </span>
-        </div>
-      )}
-    </div>
+    <DarkroomPhotoFrame key={index} index={index} style={style} filterCss={FILTER_CSS[selectedFilter]} photoUrl={photos[index]} videoUrl={videos[index]} selectedFrame={selectedFrame} />
   );
 
   return (
@@ -298,7 +330,10 @@ export default function DarkroomPage() {
             {photos.length}/4 FRAMES LOADED
           </span>
           <button
-            onClick={() => router.push("/viewfinder")}
+            onClick={() => {
+              usePhotoboothStore.getState().clearPhotos();
+              router.push("/viewfinder");
+            }}
             style={{ height: "40px", padding: "0 16px", backgroundColor: "transparent", border: "1px solid #A8A39B", color: "#A8A39B", fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", transition: "color 150ms, border-color 150ms" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "#1C1B1A"; e.currentTarget.style.borderColor = "#1C1B1A"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = "#A8A39B"; e.currentTarget.style.borderColor = "#A8A39B"; }}
@@ -310,7 +345,7 @@ export default function DarkroomPage() {
             className="btn-press"
             style={{ height: "40px", padding: "0 24px", backgroundColor: "#D24B36", border: "2px solid #1C1B1A", color: "#FFFFFF", fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", boxShadow: "3px 3px 0 #1C1B1A" }}
           >
-            DEVELOP PRINTS →
+            PRINTS →
           </button>
         </div>
       </div>

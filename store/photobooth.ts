@@ -13,7 +13,9 @@ export interface PhotoboothState {
 
   // Captured photos (base64 data URLs)
   photos: string[];
+  videos: string[]; // WebM blobs for Motion Print
   addPhoto: (photo: string) => void;
+  addVideo: (video: string) => void;
   clearPhotos: () => void;
 
   // Darkroom selections
@@ -35,6 +37,7 @@ export interface PhotoboothState {
 const initialState = {
   currentScreen: "lobby" as Screen,
   photos: [],
+  videos: [],
   selectedLayout: "strip-1x4" as LayoutType,
   selectedFrame: "minimalist-mono" as FrameType,
   selectedFilter: "ilford-hp5" as FilmFilterType,
@@ -49,7 +52,10 @@ export const usePhotoboothStore = create<PhotoboothState>((set) => ({
   addPhoto: (photo) =>
     set((state) => ({ photos: [...state.photos, photo] })),
 
-  clearPhotos: () => set({ photos: [] }),
+  addVideo: (video) =>
+    set((state) => ({ videos: [...state.videos, video] })),
+
+  clearPhotos: () => set({ photos: [], videos: [] }),
 
   setLayout: (layout) => set({ selectedLayout: layout }),
 
