@@ -14,7 +14,7 @@ export default function LobbyPage() {
     setIsLoading(true);
     setTimeout(() => {
       setIsFlashing(true);
-      setTimeout(() => router.push("/viewfinder"), 600);
+      setTimeout(() => router.push("/setup"), 600);
     }, 1200);
   };
 

@@ -62,87 +62,6 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
   );
 }
 
-const LAYOUTS: { id: LayoutType; label: string; description: string; icon: React.ReactNode }[] = [
-  {
-    id: "strip-1x4",
-    label: "Classic Strip 1×4",
-    description: "Traditional photobooth strip",
-    icon: (
-      <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
-        {[0, 12, 24, 36].map((y) => (
-          <rect key={y} x="2" y={y} width="28" height="9" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        ))}
-      </svg>
-    ),
-  },
-  {
-    id: "grid-2x2",
-    label: "Grid 2×2",
-    description: "Square grid of four",
-    icon: (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-        {[[2, 2], [21, 2], [2, 21], [21, 21]].map(([x, y]) => (
-          <rect key={`${x}-${y}`} x={x} y={y} width="17" height="17" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        ))}
-      </svg>
-    ),
-  },
-  {
-    id: "polaroid-single",
-    label: "Polaroid Single",
-    description: "One photo, big moment",
-    icon: (
-      <svg width="36" height="44" viewBox="0 0 36 44" fill="none">
-        <rect x="2" y="2" width="32" height="40" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="6" y="6" width="24" height="24" stroke="currentColor" strokeWidth="1" fill="none" strokeDasharray="2 2" />
-      </svg>
-    ),
-  },
-  {
-    id: "hero-collage",
-    label: "Hero Collage",
-    description: "1 featured, 3 small",
-    icon: (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-        <rect x="2" y="2" width="36" height="22" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="2" y="26" width="10" height="12" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="15" y="26" width="10" height="12" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="28" y="26" width="10" height="12" stroke="currentColor" strokeWidth="1.5" fill="none" />
-      </svg>
-    ),
-  },
-  {
-    id: "strip-4x1",
-    label: "Horizontal 4×1",
-    description: "Widescreen film strip",
-    icon: (
-      <svg width="44" height="24" viewBox="0 0 44 24" fill="none">
-        {[2, 12, 22, 32].map((x) => (
-          <rect key={x} x={x} y="2" width="10" height="20" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        ))}
-      </svg>
-    ),
-  },
-  {
-    id: "cinematic-reel",
-    label: "Cinematic Reel",
-    description: "Stacked widescreen cuts",
-    icon: (
-      <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
-        {[2, 14, 26, 38].map((y) => (
-          <rect key={y} x="2" y={y} width="28" height="8" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        ))}
-      </svg>
-    ),
-  },
-];
-
-const FRAMES: { id: FrameType; label: string; description: string; color: string }[] = [
-  { id: "minimalist-mono", label: "Minimalist Mono", description: "Clean white borders, no decoration", color: "#FFFFFF" },
-  { id: "vintage-floral", label: "Vintage Floral", description: "Warm sepia with botanical corners", color: "#E5DCD0" },
-  { id: "stamp-border", label: "Stamp Border", description: "Perforated edge, post office chic", color: "#F4F1EA" },
-];
-
 // --- Preview Canvas ---
 function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
   const { photos, videos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
@@ -248,143 +167,6 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
   );
 }
 
-// --- Sidebar (Options Panel) ---
-function Sidebar() {
-  const { selectedLayout, selectedFrame, setLayout, setFrame } = usePhotoboothStore();
-  const [openSection, setOpenSection] = useState<"layouts" | "frames">("layouts");
-  const isMobile = useIsMobile();
-
-  return (
-    <div style={{
-      width: isMobile ? "100%" : "320px",
-      flexShrink: 0,
-      borderRight: isMobile ? "none" : "2px solid #1C1B1A",
-      borderTop: isMobile ? "2px solid #1C1B1A" : "none",
-      backgroundColor: "#F4F1EA",
-      display: "flex",
-      flexDirection: "column",
-      overflowY: isMobile ? "visible" : "auto",
-    }}>
-      {/* Layouts section */}
-      <div>
-        <button
-          onClick={() => setOpenSection(openSection === "layouts" ? "frames" : "layouts")}
-          style={{ width: "100%", padding: isMobile ? "16px 20px" : "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer", minHeight: "56px" }}
-        >
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#1C1B1A" }}>
-            01 — LAYOUT
-          </span>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B" }}>
-            {openSection === "layouts" ? "−" : "+"}
-          </span>
-        </button>
-
-        {openSection === "layouts" && (
-          <div style={{ padding: isMobile ? "12px" : "16px", display: isMobile ? "flex" : "block", gap: isMobile ? "8px" : "0", overflowX: isMobile ? "auto" : "visible" }}>
-            {LAYOUTS.map((layout) => (
-              <button
-                key={layout.id}
-                onClick={() => setLayout(layout.id)}
-                style={{
-                  width: isMobile ? "auto" : "100%",
-                  flexShrink: isMobile ? 0 : undefined,
-                  padding: isMobile ? "12px" : "16px",
-                  marginBottom: isMobile ? "0" : "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "16px",
-                  backgroundColor: selectedLayout === layout.id ? "#E5DCD0" : "#FFFFFF",
-                  border: selectedLayout === layout.id ? "2px solid #1C1B1A" : "1px solid #A8A39B",
-                  cursor: "pointer",
-                  boxShadow: selectedLayout === layout.id ? "3px 3px 0 #1C1B1A" : "none",
-                  textAlign: "left",
-                  transition: "all 80ms",
-                  minHeight: "56px",
-                }}
-              >
-                <div style={{ color: "#1C1B1A", flexShrink: 0 }}>{layout.icon}</div>
-                {!isMobile && (
-                  <div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{layout.label}</div>
-                    <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{layout.description}</div>
-                  </div>
-                )}
-                {isMobile && (
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{layout.label}</div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Frames section */}
-      <div>
-        <button
-          onClick={() => setOpenSection(openSection === "frames" ? "layouts" : "frames")}
-          style={{ width: "100%", padding: isMobile ? "16px 20px" : "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer", minHeight: "56px" }}
-        >
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#1C1B1A" }}>
-            02 — CARD FRAME
-          </span>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B" }}>
-            {openSection === "frames" ? "−" : "+"}
-          </span>
-        </button>
-
-        {openSection === "frames" && (
-          <div style={{ padding: isMobile ? "12px" : "16px", display: isMobile ? "flex" : "block", gap: isMobile ? "8px" : "0", overflowX: isMobile ? "auto" : "visible" }}>
-            {FRAMES.map((frame) => (
-              <button
-                key={frame.id}
-                onClick={() => setFrame(frame.id)}
-                style={{
-                  width: isMobile ? "auto" : "100%",
-                  flexShrink: isMobile ? 0 : undefined,
-                  padding: isMobile ? "12px" : "16px",
-                  marginBottom: isMobile ? "0" : "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  backgroundColor: selectedFrame === frame.id ? "#E5DCD0" : "#FFFFFF",
-                  border: selectedFrame === frame.id ? "2px solid #1C1B1A" : "1px solid #A8A39B",
-                  cursor: "pointer",
-                  boxShadow: selectedFrame === frame.id ? "3px 3px 0 #1C1B1A" : "none",
-                  textAlign: "left",
-                  transition: "all 80ms",
-                  minHeight: "56px",
-                }}
-              >
-                <div style={{ width: "24px", height: "24px", backgroundColor: frame.color, border: "1px solid #A8A39B", flexShrink: 0 }} />
-                {!isMobile && (
-                  <div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{frame.label}</div>
-                    <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{frame.description}</div>
-                  </div>
-                )}
-                {isMobile && (
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{frame.label}</div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Film info */}
-      {!isMobile && (
-        <div style={{ marginTop: "auto", padding: "24px", borderTop: "1px solid #E5DCD0" }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase", lineHeight: 2 }}>
-            <div>ROLL NO. 001</div>
-            <div>4 FRAMES EXPOSED</div>
-            <div>ISO 400 — 35MM</div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // --- Main Page ---
 export default function DarkroomPage() {
   const router = useRouter();
@@ -470,30 +252,16 @@ export default function DarkroomPage() {
         </div>
       </div>
 
-      {/* Body: sidebar + canvas — stacked vertically on mobile */}
+      {/* Body: Fullscreen canvas */}
       <div style={{
         display: "flex",
         flex: 1,
-        overflow: isMobile ? "visible" : "hidden",
-        flexDirection: isMobile ? "column" : "row",
+        overflow: "auto",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "16px",
       }}>
-        {isMobile ? (
-          // Mobile: Canvas first, then options below
-          <>
-            <div style={{ display: "flex" }}>
-              <PreviewCanvas ref={previewRef} />
-            </div>
-            <Sidebar />
-          </>
-        ) : (
-          // Desktop: Sidebar left, canvas right
-          <>
-            <Sidebar />
-            <div style={{ flex: 1, overflow: "auto", display: "flex" }}>
-              <PreviewCanvas ref={previewRef} />
-            </div>
-          </>
-        )}
+        <PreviewCanvas ref={previewRef} />
       </div>
     </main>
   );
