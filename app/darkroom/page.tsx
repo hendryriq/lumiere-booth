@@ -98,6 +98,43 @@ const LAYOUTS: { id: LayoutType; label: string; description: string; icon: React
       </svg>
     ),
   },
+  {
+    id: "hero-collage",
+    label: "Hero Collage",
+    description: "1 featured, 3 small",
+    icon: (
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+        <rect x="2" y="2" width="36" height="22" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <rect x="2" y="26" width="10" height="12" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <rect x="15" y="26" width="10" height="12" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <rect x="28" y="26" width="10" height="12" stroke="currentColor" strokeWidth="1.5" fill="none" />
+      </svg>
+    ),
+  },
+  {
+    id: "strip-4x1",
+    label: "Horizontal 4×1",
+    description: "Widescreen film strip",
+    icon: (
+      <svg width="44" height="24" viewBox="0 0 44 24" fill="none">
+        {[2, 12, 22, 32].map((x) => (
+          <rect key={x} x={x} y="2" width="10" height="20" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: "cinematic-reel",
+    label: "Cinematic Reel",
+    description: "Stacked widescreen cuts",
+    icon: (
+      <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
+        {[2, 14, 26, 38].map((y) => (
+          <rect key={y} x="2" y={y} width="28" height="8" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        ))}
+      </svg>
+    ),
+  },
 ];
 
 const FRAMES: { id: FrameType; label: string; description: string; color: string }[] = [
@@ -171,6 +208,38 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", color: borderStyle.accent, opacity: 0.4, textAlign: "center" }}>
                 LUMIÈRE
               </div>
+            </div>
+          </div>
+        )}
+
+        {selectedLayout === "hero-collage" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "240px" }}>
+            {renderPhoto(0, { height: "180px", width: "240px" })}
+            <div style={{ display: "flex", gap: "6px", width: "100%" }}>
+              {[1, 2, 3].map((i) => renderPhoto(i, { height: "100px", flex: 1 }))}
+            </div>
+            <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+              LUMIÈRE BOOTH — {new Date().getFullYear()}
+            </div>
+          </div>
+        )}
+
+        {selectedLayout === "strip-4x1" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "600px", maxWidth: "80vw" }}>
+            <div style={{ display: "flex", gap: "6px" }}>
+              {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: isMobile ? "90px" : "150px", flex: 1 }))}
+            </div>
+            <div style={{ textAlign: "center", padding: "4px 0 0", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+              LUMIÈRE BOOTH — {new Date().getFullYear()}
+            </div>
+          </div>
+        )}
+
+        {selectedLayout === "cinematic-reel" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "280px" }}>
+            {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "120px", width: "280px" }))}
+            <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+              LUMIÈRE BOOTH — {new Date().getFullYear()}
             </div>
           </div>
         )}

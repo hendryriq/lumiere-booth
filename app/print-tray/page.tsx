@@ -121,6 +121,25 @@ export default function PrintTrayPage() {
         cw = 312; ch = 352;
         if (videoElements[0]) drawItems.push({ v: videoElements[0], x: 16, y: 16, w: 280, h: 280 });
         textItems.push({ text: "LUMIÈRE", font: "18px 'Fraunces', serif", x: cw / 2, y: ch - 18, color: frameConfig.text });
+      } else if (selectedLayout === "hero-collage") {
+        cw = 272; ch = 343;
+        if (videoElements[0]) drawItems.push({ v: videoElements[0], x: 16, y: 16, w: 240, h: 180 });
+        if (videoElements[1]) drawItems.push({ v: videoElements[1], x: 16, y: 16 + 180 + 6, w: 76, h: 100 });
+        if (videoElements[2]) drawItems.push({ v: videoElements[2], x: 16 + 76 + 6, y: 16 + 180 + 6, w: 76, h: 100 });
+        if (videoElements[3]) drawItems.push({ v: videoElements[3], x: 16 + 76 * 2 + 6 * 2, y: 16 + 180 + 6, w: 76, h: 100 });
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
+      } else if (selectedLayout === "strip-4x1") {
+        cw = 850; ch = 207;
+        for (let i = 0; i < 4; i++) {
+          if (videoElements[i]) drawItems.push({ v: videoElements[i], x: 16 + i * (200 + 6), y: 16, w: 200, h: 150 });
+        }
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
+      } else if (selectedLayout === "cinematic-reel") {
+        cw = 312; ch = 555;
+        for (let i = 0; i < 4; i++) {
+          if (videoElements[i]) drawItems.push({ v: videoElements[i], x: 16, y: 16 + i * (120 + 6), w: 280, h: 120 });
+        }
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
       }
 
       const scale = 2;

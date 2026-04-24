@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export type Screen = "lobby" | "viewfinder" | "darkroom" | "print-tray";
 
-export type LayoutType = "strip-1x4" | "grid-2x2" | "polaroid-single";
+export type LayoutType = "strip-1x4" | "grid-2x2" | "polaroid-single" | "hero-collage" | "strip-4x1" | "cinematic-reel";
 export type FrameType = "minimalist-mono" | "vintage-floral" | "stamp-border";
 export type FilmFilterType = "ilford-hp5" | "kodak-portra" | "fuji-superia";
 
