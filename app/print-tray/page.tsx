@@ -308,6 +308,41 @@ export default function PrintTrayPage() {
                 </div>
               </div>
             )}
+            {selectedLayout === "hero-collage" && (
+              <div style={{ width: "240px" }}>
+                {renderPhoto(0, { height: "180px", width: "240px" })}
+                <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                  {renderPhoto(1, { height: "100px", width: "76px", flex: 1 })}
+                  {renderPhoto(2, { height: "100px", width: "76px", flex: 1 })}
+                  {renderPhoto(3, { height: "100px", width: "76px", flex: 1 })}
+                </div>
+                <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+                  LUMIÈRE BOOTH — {new Date().getFullYear()}
+                </div>
+              </div>
+            )}
+            {selectedLayout === "strip-4x1" && (
+              <div style={{ width: "818px", maxWidth: "90vw" }}>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} style={{ flex: 1 }}>
+                      {renderPhoto(i, { height: "150px", width: "100%" })}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+                  LUMIÈRE BOOTH — {new Date().getFullYear()}
+                </div>
+              </div>
+            )}
+            {selectedLayout === "cinematic-reel" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "280px", maxWidth: "100%" }}>
+                {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "120px", width: "100%" }))}
+                <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+                  LUMIÈRE BOOTH — {new Date().getFullYear()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
