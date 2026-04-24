@@ -81,7 +81,7 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
     >
       {photoUrl ? (
         <>
-          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease", pointerEvents: "none" }} />
+          <div style={{ width: "100%", height: "100%", backgroundImage: `url(${photoUrl})`, backgroundSize: "cover", backgroundPosition: "center", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease", pointerEvents: "none" }} />
           {videoUrl && (
             <video 
               ref={videoRef}
