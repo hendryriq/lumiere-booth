@@ -21,9 +21,10 @@ export default function ViewfinderPage() {
   const [isAutoShooting, setIsAutoShooting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [timerDuration, setTimerDuration] = useState<number>(3);
-  const { photos, addPhoto, addVideo, clearPhotos, selectedFilter } = usePhotoboothStore();
+  const { photos, addPhoto, addVideo, clearPhotos, selectedFilter, undoLastPhoto } = usePhotoboothStore();
   const photoCount = photos.length;
   const isMobile = useIsMobile();
+  const routingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const chunksRef = useRef<BlobPart[]>([]);
 
@@ -61,11 +62,45 @@ export default function ViewfinderPage() {
 
   useEffect(() => {
     if (photoCount >= TOTAL_PHOTOS && !isRouting) {
-      setIsRouting(true);
-      setTimeout(() => stopCamera(), 600);
-      setTimeout(() => router.push("/darkroom"), 2000);
+      routingTimerRef.current = setTimeout(() => {
+        setIsRouting(true);
+        setTimeout(() => stopCamera(), 600);
+        setTimeout(() => router.push("/darkroom"), 2000);
+      }, 3000);
     }
+    
+    if (photoCount < TOTAL_PHOTOS && routingTimerRef.current) {
+      clearTimeout(routingTimerRef.current);
+      routingTimerRef.current = null;
+    }
+
+    return () => {
+      if (routingTimerRef.current) clearTimeout(routingTimerRef.current);
+    };
   }, [photoCount, isRouting, router, stopCamera]);
+
+  const handleRetake = useCallback(() => {
+    if (routingTimerRef.current) {
+      clearTimeout(routingTimerRef.current);
+      routingTimerRef.current = null;
+    }
+
+    if (recorderRef.current && recorderRef.current.state === "recording") {
+      recorderRef.current.onstop = null;
+      try {
+        recorderRef.current.stop();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setIsAutoShooting(false);
+    setCountdown(null);
+
+    if (photoCount > 0) {
+      undoLastPhoto();
+    }
+  }, [photoCount, undoLastPhoto]);
 
   const takePhoto = useCallback(() => {
     if (!videoRef.current || photoCount >= TOTAL_PHOTOS) return;
@@ -290,20 +325,46 @@ export default function ViewfinderPage() {
           </div>
         )}
 
-        {photoCount < TOTAL_PHOTOS ? (
-          <button
-            onClick={() => setIsAutoShooting(true)}
-            disabled={isAutoShooting || permissionDenied}
-            style={{ width: isMobile ? "72px" : "80px", height: isMobile ? "72px" : "80px", borderRadius: "50%", backgroundColor: (isAutoShooting || permissionDenied) ? "#555" : "#D24B36", border: "4px solid #FFFFFF", cursor: (isAutoShooting || permissionDenied) ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color 150ms" }}
-          >
-            <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.5)" }} />
-          </button>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B", letterSpacing: "0.1em" }}>DEVELOPING</span>
-            <span className="blink" style={{ color: "#D24B36", fontFamily: "'Space Mono', monospace", fontSize: "12px" }}>_</span>
-          </div>
-        )}
+        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: isMobile ? "72px" : "80px" }}>
+          {photoCount > 0 && !isRouting && (
+            <button
+              onClick={handleRetake}
+              style={{
+                position: "absolute",
+                left: isMobile ? "0px" : "calc(50% - 160px)",
+                fontFamily: "'Space Mono', monospace",
+                fontSize: "11px",
+                color: "#A8A39B",
+                backgroundColor: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                padding: "8px 16px",
+                borderRadius: "20px",
+                cursor: "pointer",
+                letterSpacing: "0.05em",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#FFF"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#A8A39B"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+            >
+              ↺ RETAKE
+            </button>
+          )}
+
+          {photoCount < TOTAL_PHOTOS ? (
+            <button
+              onClick={() => setIsAutoShooting(true)}
+              disabled={isAutoShooting || permissionDenied}
+              style={{ width: isMobile ? "72px" : "80px", height: isMobile ? "72px" : "80px", borderRadius: "50%", backgroundColor: (isAutoShooting || permissionDenied) ? "#555" : "#D24B36", border: "4px solid #FFFFFF", cursor: (isAutoShooting || permissionDenied) ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color 150ms" }}
+            >
+              <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.5)" }} />
+            </button>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B", letterSpacing: "0.1em" }}>DEVELOPING</span>
+              <span className="blink" style={{ color: "#D24B36", fontFamily: "'Space Mono', monospace", fontSize: "12px" }}>_</span>
+            </div>
+          )}
+        </div>
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#555", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center" }}>
           {photoCount < TOTAL_PHOTOS
             ? (isAutoShooting ? `SHOOTING... ${TOTAL_PHOTOS - photoCount} REMAINING` : (isMobile ? "TAP TO START AUTO SHOOTING" : "CLICK TO START AUTO SHOOTING"))

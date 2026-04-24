@@ -17,6 +17,7 @@ export interface PhotoboothState {
   addPhoto: (photo: string) => void;
   addVideo: (video: string) => void;
   clearPhotos: () => void;
+  undoLastPhoto: () => void;
 
   // Darkroom selections
   selectedLayout: LayoutType;
@@ -56,6 +57,12 @@ export const usePhotoboothStore = create<PhotoboothState>((set) => ({
     set((state) => ({ videos: [...state.videos, video] })),
 
   clearPhotos: () => set({ photos: [], videos: [] }),
+
+  undoLastPhoto: () =>
+    set((state) => ({
+      photos: state.photos.slice(0, -1),
+      videos: state.videos.slice(0, -1),
+    })),
 
   setLayout: (layout) => set({ selectedLayout: layout }),
 
