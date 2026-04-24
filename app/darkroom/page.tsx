@@ -229,8 +229,10 @@ export default function DarkroomPage() {
         const html2canvas = (await import("html2canvas")).default;
         const canvas = await html2canvas(previewRef.current!, {
           backgroundColor: "#F4F1EA",
-          scale: 2,
+          scale: 4, // Increased from 2 to 4 for retina-grade print resolution
           useCORS: true,
+          logging: false,
+          allowTaint: true,
         });
         applyAnalogFilter(canvas, selectedFilter);
         const dataUrl = canvas.toDataURL("image/png");
