@@ -211,7 +211,7 @@ export async function composePhotoStrip(
   }
 
   // ── Polaroid Single ────────────────────────────────────────────
-  else {
+  else if (layout === "polaroid-single"){
     const photoW = 280 * SCALE;
     const photoH = 280 * SCALE;
     const pad = 16 * SCALE;
