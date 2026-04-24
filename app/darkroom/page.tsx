@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore, LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
 import { applyAnalogFilter, FILTER_CSS } from "@/lib/utils";
@@ -8,7 +8,10 @@ import { useIsMobile } from "@/lib/hooks";
 
 function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selectedFrame }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined, selectedFrame: string }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const swapPhotos = usePhotoboothStore(s => s.swapPhotos);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -23,23 +26,62 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
     }
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!photoUrl) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("text/plain", index.toString());
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const srcIndexStr = e.dataTransfer.getData("text/plain");
+    const srcIndex = parseInt(srcIndexStr, 10);
+    if (!isNaN(srcIndex) && srcIndex !== index) {
+      swapPhotos(srcIndex, index);
+    }
+  };
+
   return (
     <div 
+      draggable={!!photoUrl}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       style={{
         ...style,
         backgroundColor: "#1C1B1A",
         overflow: "hidden",
         position: "relative",
-        cursor: videoUrl ? "pointer" : "default",
-        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : "none",
+        cursor: photoUrl ? "grab" : "default",
+        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : (isDragOver ? "3px solid #D24B36" : "none"),
         outlineOffset: "-4px",
+        transform: isDragOver ? "scale(0.95)" : "scale(1)",
+        transition: "transform 150ms ease, opacity 150ms ease",
+        opacity: isDragOver ? 0.8 : 1,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onMouseDown={(e) => { if (photoUrl) e.currentTarget.style.cursor = "grabbing"; }}
+      onMouseUp={(e) => { if (photoUrl) e.currentTarget.style.cursor = "grab"; }}
     >
       {photoUrl ? (
         <>
-          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease" }} />
+          <div style={{ width: "100%", height: "100%", backgroundImage: `url(${photoUrl})`, backgroundSize: "cover", backgroundPosition: "center", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease", pointerEvents: "none" }} />
           {videoUrl && (
             <video 
               ref={videoRef}
@@ -47,13 +89,13 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
               muted 
               loop 
               playsInline 
-              style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 2, opacity: isHovered ? 1 : 0, transition: "opacity 300ms ease", transform: "scaleX(-1)" }} 
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 2, opacity: isHovered ? 1 : 0, transition: "opacity 300ms ease", transform: "scaleX(-1)", pointerEvents: "none" }} 
             />
           )}
         </>
       ) : (
         <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #444", position: "absolute", inset: 0 }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center", pointerEvents: "none" }}>
             DRAG NEGATIVE<br/>HERE
           </span>
         </div>
@@ -62,53 +104,9 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
   );
 }
 
-const LAYOUTS: { id: LayoutType; label: string; description: string; icon: React.ReactNode }[] = [
-  {
-    id: "strip-1x4",
-    label: "Classic Strip 1×4",
-    description: "Traditional photobooth strip",
-    icon: (
-      <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
-        {[0, 12, 24, 36].map((y) => (
-          <rect key={y} x="2" y={y} width="28" height="9" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        ))}
-      </svg>
-    ),
-  },
-  {
-    id: "grid-2x2",
-    label: "Grid 2×2",
-    description: "Square grid of four",
-    icon: (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-        {[[2, 2], [21, 2], [2, 21], [21, 21]].map(([x, y]) => (
-          <rect key={`${x}-${y}`} x={x} y={y} width="17" height="17" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        ))}
-      </svg>
-    ),
-  },
-  {
-    id: "polaroid-single",
-    label: "Polaroid Single",
-    description: "One photo, big moment",
-    icon: (
-      <svg width="36" height="44" viewBox="0 0 36 44" fill="none">
-        <rect x="2" y="2" width="32" height="40" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="6" y="6" width="24" height="24" stroke="currentColor" strokeWidth="1" fill="none" strokeDasharray="2 2" />
-      </svg>
-    ),
-  },
-];
-
-const FRAMES: { id: FrameType; label: string; description: string; color: string }[] = [
-  { id: "minimalist-mono", label: "Minimalist Mono", description: "Clean white borders, no decoration", color: "#FFFFFF" },
-  { id: "vintage-floral", label: "Vintage Floral", description: "Warm sepia with botanical corners", color: "#E5DCD0" },
-  { id: "stamp-border", label: "Stamp Border", description: "Perforated edge, post office chic", color: "#F4F1EA" },
-];
-
 // --- Preview Canvas ---
 function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
-  const { photos, videos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
+  const { photos, videos, selectedLayout, selectedFrame, selectedFilter, customText } = usePhotoboothStore();
   const isMobile = useIsMobile();
 
   const borderStyle = {
@@ -147,7 +145,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "200px" }}>
             {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "150px", width: "200px" }))}
             <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
+              {customText}
             </div>
           </div>
         )}
@@ -158,7 +156,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
               {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "175px" }))}
             </div>
             <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
+              {customText}
             </div>
           </div>
         )}
@@ -169,8 +167,40 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
             <div style={{ padding: "20px 8px 8px", display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ height: "1px", backgroundColor: borderStyle.accent, opacity: 0.15, marginBottom: "8px" }} />
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", color: borderStyle.accent, opacity: 0.4, textAlign: "center" }}>
-                LUMIÈRE
+                {customText}
               </div>
+            </div>
+          </div>
+        )}
+
+        {selectedLayout === "hero-collage" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "240px" }}>
+            {renderPhoto(0, { height: "180px", width: "240px" })}
+            <div style={{ display: "flex", gap: "6px", width: "100%" }}>
+              {[1, 2, 3].map((i) => renderPhoto(i, { height: "100px", flex: 1 }))}
+            </div>
+            <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+              {customText}
+            </div>
+          </div>
+        )}
+
+        {selectedLayout === "strip-4x1" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "600px", maxWidth: "80vw" }}>
+            <div style={{ display: "flex", gap: "6px" }}>
+              {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: isMobile ? "90px" : "150px", flex: 1 }))}
+            </div>
+            <div style={{ textAlign: "center", padding: "4px 0 0", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+              {customText}
+            </div>
+          </div>
+        )}
+
+        {selectedLayout === "cinematic-reel" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "280px" }}>
+            {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "120px", width: "280px" }))}
+            <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+              {customText}
             </div>
           </div>
         )}
@@ -179,149 +209,18 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
   );
 }
 
-// --- Sidebar (Options Panel) ---
-function Sidebar() {
-  const { selectedLayout, selectedFrame, setLayout, setFrame } = usePhotoboothStore();
-  const [openSection, setOpenSection] = useState<"layouts" | "frames">("layouts");
-  const isMobile = useIsMobile();
-
-  return (
-    <div style={{
-      width: isMobile ? "100%" : "320px",
-      flexShrink: 0,
-      borderRight: isMobile ? "none" : "2px solid #1C1B1A",
-      borderTop: isMobile ? "2px solid #1C1B1A" : "none",
-      backgroundColor: "#F4F1EA",
-      display: "flex",
-      flexDirection: "column",
-      overflowY: isMobile ? "visible" : "auto",
-    }}>
-      {/* Layouts section */}
-      <div>
-        <button
-          onClick={() => setOpenSection(openSection === "layouts" ? "frames" : "layouts")}
-          style={{ width: "100%", padding: isMobile ? "16px 20px" : "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer", minHeight: "56px" }}
-        >
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#1C1B1A" }}>
-            01 — LAYOUT
-          </span>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B" }}>
-            {openSection === "layouts" ? "−" : "+"}
-          </span>
-        </button>
-
-        {openSection === "layouts" && (
-          <div style={{ padding: isMobile ? "12px" : "16px", display: isMobile ? "flex" : "block", gap: isMobile ? "8px" : "0", overflowX: isMobile ? "auto" : "visible" }}>
-            {LAYOUTS.map((layout) => (
-              <button
-                key={layout.id}
-                onClick={() => setLayout(layout.id)}
-                style={{
-                  width: isMobile ? "auto" : "100%",
-                  flexShrink: isMobile ? 0 : undefined,
-                  padding: isMobile ? "12px" : "16px",
-                  marginBottom: isMobile ? "0" : "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "16px",
-                  backgroundColor: selectedLayout === layout.id ? "#E5DCD0" : "#FFFFFF",
-                  border: selectedLayout === layout.id ? "2px solid #1C1B1A" : "1px solid #A8A39B",
-                  cursor: "pointer",
-                  boxShadow: selectedLayout === layout.id ? "3px 3px 0 #1C1B1A" : "none",
-                  textAlign: "left",
-                  transition: "all 80ms",
-                  minHeight: "56px",
-                }}
-              >
-                <div style={{ color: "#1C1B1A", flexShrink: 0 }}>{layout.icon}</div>
-                {!isMobile && (
-                  <div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{layout.label}</div>
-                    <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{layout.description}</div>
-                  </div>
-                )}
-                {isMobile && (
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{layout.label}</div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Frames section */}
-      <div>
-        <button
-          onClick={() => setOpenSection(openSection === "frames" ? "layouts" : "frames")}
-          style={{ width: "100%", padding: isMobile ? "16px 20px" : "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "transparent", border: "none", borderBottom: "2px solid #1C1B1A", cursor: "pointer", minHeight: "56px" }}
-        >
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#1C1B1A" }}>
-            02 — CARD FRAME
-          </span>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B" }}>
-            {openSection === "frames" ? "−" : "+"}
-          </span>
-        </button>
-
-        {openSection === "frames" && (
-          <div style={{ padding: isMobile ? "12px" : "16px", display: isMobile ? "flex" : "block", gap: isMobile ? "8px" : "0", overflowX: isMobile ? "auto" : "visible" }}>
-            {FRAMES.map((frame) => (
-              <button
-                key={frame.id}
-                onClick={() => setFrame(frame.id)}
-                style={{
-                  width: isMobile ? "auto" : "100%",
-                  flexShrink: isMobile ? 0 : undefined,
-                  padding: isMobile ? "12px" : "16px",
-                  marginBottom: isMobile ? "0" : "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  backgroundColor: selectedFrame === frame.id ? "#E5DCD0" : "#FFFFFF",
-                  border: selectedFrame === frame.id ? "2px solid #1C1B1A" : "1px solid #A8A39B",
-                  cursor: "pointer",
-                  boxShadow: selectedFrame === frame.id ? "3px 3px 0 #1C1B1A" : "none",
-                  textAlign: "left",
-                  transition: "all 80ms",
-                  minHeight: "56px",
-                }}
-              >
-                <div style={{ width: "24px", height: "24px", backgroundColor: frame.color, border: "1px solid #A8A39B", flexShrink: 0 }} />
-                {!isMobile && (
-                  <div>
-                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", marginBottom: "4px" }}>{frame.label}</div>
-                    <div style={{ fontFamily: "'Lora', serif", fontSize: "13px", color: "#A8A39B" }}>{frame.description}</div>
-                  </div>
-                )}
-                {isMobile && (
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", fontWeight: 700, color: "#1C1B1A", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{frame.label}</div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Film info */}
-      {!isMobile && (
-        <div style={{ marginTop: "auto", padding: "24px", borderTop: "1px solid #E5DCD0" }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase", lineHeight: 2 }}>
-            <div>ROLL NO. 001</div>
-            <div>4 FRAMES EXPOSED</div>
-            <div>ISO 400 — 35MM</div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // --- Main Page ---
 export default function DarkroomPage() {
   const router = useRouter();
-  const { photos, selectedFilter, setFinalImageUrl } = usePhotoboothStore();
+  const { photos, selectedFilter, setFinalImageUrl, customText, setCustomText } = usePhotoboothStore();
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (photos.length === 0) {
+      router.replace("/");
+    }
+  }, [photos.length, router]);
 
   const handleDevelop = async () => {
     // Use html2canvas to capture the preview
@@ -371,13 +270,35 @@ export default function DarkroomPage() {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "24px" }}>
           <span style={{ fontFamily: "'Fraunces', serif", fontSize: isMobile ? "18px" : "22px", color: "#1C1B1A", letterSpacing: "-0.01em" }}>LUMIÈRE BOOTH</span>
-          {!isMobile && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase" }}>/ THE DARKROOM</span>}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "16px" }}>
           {!isMobile && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginRight: "16px" }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                TEXT:
+              </span>
+              <input
+                type="text"
+                value={usePhotoboothStore.getState().customText}
+                onChange={(e) => usePhotoboothStore.getState().setCustomText(e.target.value)}
+                maxLength={40}
+                style={{
+                  backgroundColor: "transparent",
+                  border: "1px solid #A8A39B",
+                  color: "#1C1B1A",
+                  fontFamily: "'Space Mono', monospace",
+                  fontSize: "11px",
+                  padding: "4px 8px",
+                  width: "180px",
+                  outline: "none"
+                }}
+              />
+            </div>
+          )}
+          {!isMobile && (
             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              {photos.length}/4 FRAMES LOADED
+              {photos.length}/4 FRAMES
             </span>
           )}
           <button
@@ -400,31 +321,42 @@ export default function DarkroomPage() {
           </button>
         </div>
       </div>
+      
+      {isMobile && (
+        <div style={{ padding: "16px 16px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            CUSTOM TEXT
+          </span>
+          <input
+            type="text"
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            maxLength={40}
+            style={{
+              backgroundColor: "transparent",
+              border: "1px solid #A8A39B",
+              color: "#1C1B1A",
+              fontFamily: "'Space Mono', monospace",
+              fontSize: "12px",
+              padding: "8px 12px",
+              width: "100%",
+              outline: "none",
+              borderRadius: 0
+            }}
+          />
+        </div>
+      )}
 
-      {/* Body: sidebar + canvas — stacked vertically on mobile */}
+      {/* Body: Fullscreen canvas */}
       <div style={{
         display: "flex",
         flex: 1,
-        overflow: isMobile ? "visible" : "hidden",
-        flexDirection: isMobile ? "column" : "row",
+        overflow: "auto",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "16px",
       }}>
-        {isMobile ? (
-          // Mobile: Canvas first, then options below
-          <>
-            <div style={{ display: "flex" }}>
-              <PreviewCanvas ref={previewRef} />
-            </div>
-            <Sidebar />
-          </>
-        ) : (
-          // Desktop: Sidebar left, canvas right
-          <>
-            <Sidebar />
-            <div style={{ flex: 1, overflow: "auto", display: "flex" }}>
-              <PreviewCanvas ref={previewRef} />
-            </div>
-          </>
-        )}
+        <PreviewCanvas ref={previewRef} />
       </div>
     </main>
   );

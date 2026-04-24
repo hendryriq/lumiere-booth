@@ -31,7 +31,7 @@ function PhotoFrame({ index, style, filterCss, photoUrl, videoUrl }: { index: nu
     >
       {photoUrl ? (
         <>
-          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease" }} />
+          <div style={{ width: "100%", height: "100%", backgroundImage: `url(${photoUrl})`, backgroundSize: "cover", backgroundPosition: "center", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease" }} />
           {videoUrl && (
             <video 
               ref={videoRef}
@@ -52,15 +52,19 @@ function PhotoFrame({ index, style, filterCss, photoUrl, videoUrl }: { index: nu
 
 export default function PrintTrayPage() {
   const router = useRouter();
-  const { finalImageUrl, photos, videos, selectedLayout, selectedFrame, selectedFilter, resetSession } = usePhotoboothStore();
+  const { finalImageUrl, photos, videos, selectedLayout, selectedFrame, selectedFilter, resetSession, customText } = usePhotoboothStore();
   const [isDeveloped, setIsDeveloped] = useState(false);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    if (photos.length === 0) {
+      router.replace("/");
+      return;
+    }
     const t = setTimeout(() => setIsDeveloped(true), 3100);
     return () => clearTimeout(t);
-  }, []);
+  }, [photos.length, router]);
 
   const handleDownload = () => {
     if (finalImageUrl) {
@@ -102,7 +106,7 @@ export default function PrintTrayPage() {
       const drawItems: { v: HTMLVideoElement, x: number, y: number, w: number, h: number }[] = [];
       const textItems: { text: string, font: string, x: number, y: number, color: string }[] = [];
 
-      const copyright = `LUMIÈRE BOOTH — ${new Date().getFullYear()}`;
+      const copyright = customText;
 
       if (selectedLayout === "strip-1x4") {
         cw = 232; ch = 675;
@@ -120,7 +124,26 @@ export default function PrintTrayPage() {
       } else if (selectedLayout === "polaroid-single") {
         cw = 312; ch = 352;
         if (videoElements[0]) drawItems.push({ v: videoElements[0], x: 16, y: 16, w: 280, h: 280 });
-        textItems.push({ text: "LUMIÈRE", font: "18px 'Fraunces', serif", x: cw / 2, y: ch - 18, color: frameConfig.text });
+        textItems.push({ text: customText, font: "18px 'Fraunces', serif", x: cw / 2, y: ch - 18, color: frameConfig.text });
+      } else if (selectedLayout === "hero-collage") {
+        cw = 272; ch = 343;
+        if (videoElements[0]) drawItems.push({ v: videoElements[0], x: 16, y: 16, w: 240, h: 180 });
+        if (videoElements[1]) drawItems.push({ v: videoElements[1], x: 16, y: 16 + 180 + 6, w: 76, h: 100 });
+        if (videoElements[2]) drawItems.push({ v: videoElements[2], x: 16 + 76 + 6, y: 16 + 180 + 6, w: 76, h: 100 });
+        if (videoElements[3]) drawItems.push({ v: videoElements[3], x: 16 + 76 * 2 + 6 * 2, y: 16 + 180 + 6, w: 76, h: 100 });
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
+      } else if (selectedLayout === "strip-4x1") {
+        cw = 850; ch = 207;
+        for (let i = 0; i < 4; i++) {
+          if (videoElements[i]) drawItems.push({ v: videoElements[i], x: 16 + i * (200 + 6), y: 16, w: 200, h: 150 });
+        }
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
+      } else if (selectedLayout === "cinematic-reel") {
+        cw = 312; ch = 555;
+        for (let i = 0; i < 4; i++) {
+          if (videoElements[i]) drawItems.push({ v: videoElements[i], x: 16, y: 16 + i * (120 + 6), w: 280, h: 120 });
+        }
+        textItems.push({ text: copyright, font: "9px 'Space Mono', monospace", x: cw / 2, y: ch - 12, color: frameConfig.text });
       }
 
       const scale = 2;
@@ -267,7 +290,7 @@ export default function PrintTrayPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "200px" }}>
                 {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "150px", width: "200px" }))}
                 <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-                  LUMIÈRE BOOTH — {new Date().getFullYear()}
+                  {customText}
                 </div>
               </div>
             )}
@@ -277,7 +300,7 @@ export default function PrintTrayPage() {
                   {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "175px" }))}
                 </div>
                 <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-                  LUMIÈRE BOOTH — {new Date().getFullYear()}
+                  {customText}
                 </div>
               </div>
             )}
@@ -285,7 +308,42 @@ export default function PrintTrayPage() {
               <div style={{ width: "280px" }}>
                 {renderPhoto(0, { height: "280px", width: "280px" })}
                 <div style={{ padding: "20px 8px 8px", textAlign: "center" }}>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", color: borderStyle.accent, opacity: 0.4 }}>LUMIÈRE</div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", color: borderStyle.accent, opacity: 0.4 }}>{customText}</div>
+                </div>
+              </div>
+            )}
+            {selectedLayout === "hero-collage" && (
+              <div style={{ width: "240px" }}>
+                {renderPhoto(0, { height: "180px", width: "240px" })}
+                <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                  {renderPhoto(1, { height: "100px", width: "76px", flex: 1 })}
+                  {renderPhoto(2, { height: "100px", width: "76px", flex: 1 })}
+                  {renderPhoto(3, { height: "100px", width: "76px", flex: 1 })}
+                </div>
+                <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+                  {customText}
+                </div>
+              </div>
+            )}
+            {selectedLayout === "strip-4x1" && (
+              <div style={{ width: "818px", maxWidth: "90vw" }}>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} style={{ flex: 1 }}>
+                      {renderPhoto(i, { height: "150px", width: "100%" })}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+                  {customText}
+                </div>
+              </div>
+            )}
+            {selectedLayout === "cinematic-reel" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "280px", maxWidth: "100%" }}>
+                {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "120px", width: "100%" }))}
+                <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
+                  {customText}
                 </div>
               </div>
             )}
@@ -340,7 +398,7 @@ export default function PrintTrayPage() {
                         <path d="m10 8-4 3V5l4 3Z" />
                         <circle cx="8" cy="8" r="6" />
                       </svg>
-                      SAVE MOTION (MP4/WEBM)
+                      SAVE MOTION (MP4)
                     </>
                   )}
                 </button>
@@ -360,13 +418,6 @@ export default function PrintTrayPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Bottom film strip decoration */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "32px", backgroundColor: "#1C1B1A", display: "flex", alignItems: "center", padding: "0 8px", gap: "8px", overflow: "hidden" }}>
-        {Array.from({ length: 40 }).map((_, i) => (
-          <div key={i} style={{ minWidth: "20px", height: "16px", border: "1px solid #A8A39B", opacity: 0.3, flexShrink: 0 }} />
-        ))}
       </div>
     </main>
   );

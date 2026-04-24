@@ -14,7 +14,7 @@ export default function LobbyPage() {
     setIsLoading(true);
     setTimeout(() => {
       setIsFlashing(true);
-      setTimeout(() => router.push("/viewfinder"), 600);
+      setTimeout(() => router.push("/setup"), 600);
     }, 1200);
   };
 
@@ -48,24 +48,10 @@ export default function LobbyPage() {
             className="btn-press shadow-hard"
             style={{ width: "min(280px, 100%)", height: "56px", backgroundColor: "#FFFFFF", border: "2px solid #1C1B1A", cursor: isLoading ? "default" : "pointer", fontFamily: "'Space Mono', monospace", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#1C1B1A", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
           >
-            {isLoading ? (<>WARMING UP TUBE<span className="blink" style={{ color: "#D24B36" }}>_</span></>) : "INSERT COIN / START"}
+            {isLoading ? (<>WARMING UP TUBE<span className="blink" style={{ color: "#D24B36" }}>_</span></>) : "START"}
           </button>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.1em", color: "#A8A39B", textTransform: "uppercase" }}>⚠ REQUIRES WEBCAM ACCESS</span>
         </div>
-      </div>
-
-      {/* Film strip bottom */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "40px", backgroundColor: "#1C1B1A", display: "flex", alignItems: "center", padding: "0 8px", gap: "8px", overflow: "hidden" }}>
-        {Array.from({ length: 40 }).map((_, i) => (
-          <div key={i} style={{ minWidth: "24px", height: "20px", border: "1px solid #A8A39B", opacity: 0.4, flexShrink: 0 }} />
-        ))}
-      </div>
-
-      {/* Bottom metadata */}
-      <div style={{ position: "absolute", bottom: "56px", left: pad, right: pad, display: "flex", justifyContent: "space-between" }}>
-        {["ISO 400", "35MM ANALOG", "f/1.4"].map(t => (
-          <span key={t} style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#A8A39B", letterSpacing: "0.1em" }}>{t}</span>
-        ))}
       </div>
     </main>
   );

@@ -211,7 +211,7 @@ export async function composePhotoStrip(
   }
 
   // ── Polaroid Single ────────────────────────────────────────────
-  else {
+  else if (layout === "polaroid-single"){
     const photoW = 280 * SCALE;
     const photoH = 280 * SCALE;
     const pad = 16 * SCALE;
@@ -247,6 +247,92 @@ export async function composePhotoStrip(
     ctx.fillText("LUMIÈRE", canvas.width / 2, photoH + pad + 50 * SCALE);
     ctx.globalAlpha = 1;
     ctx.textAlign = "left";
+  }
+
+  // ── Hero Collage ────────────────────────────────────────────────
+  else if (layout === "hero-collage") {
+    const heroW = 240 * SCALE;
+    const heroH = 180 * SCALE;
+    const smallW = 76 * SCALE;
+    const smallH = 100 * SCALE;
+    const gap = 6 * SCALE;
+    const pad = 16 * SCALE;
+    const labelH = 28 * SCALE;
+
+    canvas.width = heroW + pad * 2;
+    canvas.height = pad + heroH + gap + smallH + pad + labelH;
+
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (frame === "stamp-border") drawStampBorder(ctx, 0, 0, canvas.width, canvas.height);
+    if (frame === "vintage-floral") drawFloralCorners(ctx, 0, 0, canvas.width, canvas.height);
+
+    if (images[0]) drawPhoto(ctx, images[0]!, pad, pad, heroW, heroH);
+    else drawPlaceholder(ctx, pad, pad, heroW, heroH);
+
+    for (let i = 1; i < 4; i++) {
+        const x = pad + (i - 1) * (smallW + gap);
+        const y = pad + heroH + gap;
+        if (images[i]) drawPhoto(ctx, images[i]!, x, y, smallW, smallH);
+        else drawPlaceholder(ctx, x, y, smallW, smallH);
+    }
+    
+    drawLabel(ctx, label, canvas.width / 2, canvas.height - pad, accent);
+  }
+
+  // ── Horizontal Strip 4x1 ─────────────────────────────────────────
+  else if (layout === "strip-4x1") {
+    const photoW = 200 * SCALE;
+    const photoH = 150 * SCALE;
+    const gap = 6 * SCALE;
+    const pad = 16 * SCALE;
+    const labelH = 28 * SCALE;
+
+    canvas.width = pad * 2 + photoW * 4 + gap * 3;
+    canvas.height = pad * 2 + photoH + labelH;
+
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (frame === "stamp-border") drawStampBorder(ctx, 0, 0, canvas.width, canvas.height);
+    if (frame === "vintage-floral") drawFloralCorners(ctx, 0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < 4; i++) {
+      const x = pad + i * (photoW + gap);
+      const y = pad;
+      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH);
+      else drawPlaceholder(ctx, x, y, photoW, photoH);
+    }
+    
+    drawLabel(ctx, label, canvas.width / 2, canvas.height - pad, accent);
+  }
+
+  // ── Cinematic Reel ──────────────────────────────────────────────
+  else if (layout === "cinematic-reel") {
+    const photoW = 280 * SCALE;
+    const photoH = 120 * SCALE;
+    const gap = 6 * SCALE;
+    const pad = 16 * SCALE;
+    const labelH = 28 * SCALE;
+
+    canvas.width = photoW + pad * 2;
+    canvas.height = pad + (photoH + gap) * 4 - gap + pad + labelH;
+
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (frame === "stamp-border") drawStampBorder(ctx, 0, 0, canvas.width, canvas.height);
+    if (frame === "vintage-floral") drawFloralCorners(ctx, 0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < 4; i++) {
+      const x = pad;
+      const y = pad + i * (photoH + gap);
+      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH);
+      else drawPlaceholder(ctx, x, y, photoW, photoH);
+    }
+    
+    drawLabel(ctx, label, canvas.width / 2, canvas.height - pad, accent);
   }
 
   return canvas.toDataURL("image/png");

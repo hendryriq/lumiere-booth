@@ -2,26 +2,30 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { usePhotoboothStore, FilmFilterType } from "@/store/photobooth";
+import { usePhotoboothStore } from "@/store/photobooth";
 import { captureFrame, formatFilmCounter, FILTER_CSS } from "@/lib/utils";
 import { useIsMobile } from "@/lib/hooks";
 
 const TOTAL_PHOTOS = 4;
+const FLASH_DURATION = 1500;
 
 export default function ViewfinderPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [isFlashing, setIsFlashing] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const motionBlobsRef = useRef<Blob[]>([]);
+  
   const [isRouting, setIsRouting] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [isAutoShooting, setIsAutoShooting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [timerDuration, setTimerDuration] = useState<number>(3);
-  const { photos, addPhoto, addVideo, clearPhotos, selectedFilter, setFilter } = usePhotoboothStore();
+  const { photos, addPhoto, addVideo, clearPhotos, selectedFilter, undoLastPhoto } = usePhotoboothStore();
   const photoCount = photos.length;
   const isMobile = useIsMobile();
+  const routingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
   useEffect(() => {
@@ -44,11 +48,9 @@ export default function ViewfinderPage() {
       .catch(() => setPermissionDenied(true));
 
     return () => {
-      // Use the captured stream variable — safe even after ref is nulled by React
       activeStream?.getTracks().forEach((t) => t.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopCamera = useCallback(() => {
@@ -60,11 +62,45 @@ export default function ViewfinderPage() {
 
   useEffect(() => {
     if (photoCount >= TOTAL_PHOTOS && !isRouting) {
-      setIsRouting(true);
-      setTimeout(() => stopCamera(), 600); // Wait for the final 0.5s recording to finish
-      setTimeout(() => router.push("/darkroom"), 2000);
+      routingTimerRef.current = setTimeout(() => {
+        setIsRouting(true);
+        setTimeout(() => stopCamera(), 600);
+        setTimeout(() => router.push("/darkroom"), 2000);
+      }, 3000);
     }
+    
+    if (photoCount < TOTAL_PHOTOS && routingTimerRef.current) {
+      clearTimeout(routingTimerRef.current);
+      routingTimerRef.current = null;
+    }
+
+    return () => {
+      if (routingTimerRef.current) clearTimeout(routingTimerRef.current);
+    };
   }, [photoCount, isRouting, router, stopCamera]);
+
+  const handleRetake = useCallback(() => {
+    if (routingTimerRef.current) {
+      clearTimeout(routingTimerRef.current);
+      routingTimerRef.current = null;
+    }
+
+    if (recorderRef.current && recorderRef.current.state === "recording") {
+      recorderRef.current.onstop = null;
+      try {
+        recorderRef.current.stop();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setIsAutoShooting(false);
+    setCountdown(null);
+
+    if (photoCount > 0) {
+      undoLastPhoto();
+    }
+  }, [photoCount, undoLastPhoto]);
 
   const takePhoto = useCallback(() => {
     if (!videoRef.current || photoCount >= TOTAL_PHOTOS) return;
@@ -103,7 +139,7 @@ export default function ViewfinderPage() {
         } catch (err) {
           console.error("Failed to start MediaRecorder", err);
         }
-      }, 500); // 1.5s before shutter
+      }, 500);
     }
 
     if (countdown > 0) {
@@ -115,7 +151,6 @@ export default function ViewfinderPage() {
       takePhoto();
       setCountdown(null);
 
-      // 0.5s after shutter
       setTimeout(() => {
         if (recorderRef.current && recorderRef.current.state === "recording") {
           recorderRef.current.stop();
@@ -123,12 +158,6 @@ export default function ViewfinderPage() {
       }, 500);
     }
   }, [isAutoShooting, photoCount, countdown, takePhoto, timerDuration, addVideo]);
-
-  const FILTER_LABELS: Record<FilmFilterType, string> = {
-    "ilford-hp5":    isMobile ? "HP5"     : "HP5 (B&W)",
-    "kodak-portra":  isMobile ? "PORTRA"  : "PORTRA (WARM)",
-    "fuji-superia":  isMobile ? "SUPERIA" : "SUPERIA (COOL)",
-  };
 
   return (
     <main style={{
@@ -149,7 +178,6 @@ export default function ViewfinderPage() {
         <div style={{ position: "fixed", inset: 0, backgroundColor: "#000", zIndex: 200, animation: "fade-in 1s ease-out forwards" }} />
       )}
 
-      {/* Top HUD */}
       <div style={{
         position: isMobile ? "sticky" : "absolute",
         top: 0, left: 0, right: 0,
@@ -177,7 +205,6 @@ export default function ViewfinderPage() {
         </div>
       </div>
 
-      {/* Camera + thumbnails wrapper */}
       <div style={{
         marginTop: isMobile ? "8px" : "0",
         display: "flex",
@@ -186,17 +213,14 @@ export default function ViewfinderPage() {
         width: "100%",
         padding: isMobile ? "0 8px" : "0",
       }}>
-        {/* Camera area */}
         <div style={{
           position: "relative",
           width: isMobile ? "100%" : "800px",
           maxWidth: isMobile ? "100%" : "85vw",
           aspectRatio: "4/3",
         }}>
-          {/* Vignette */}
           <div style={{ position: "absolute", inset: 0, zIndex: 10, pointerEvents: "none", background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.75) 100%)" }} />
 
-          {/* Reticle */}
           <div style={{ position: "absolute", inset: 0, zIndex: 11, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ width: "60px", height: "60px", position: "relative" }}>
               <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: "1px", backgroundColor: "rgba(255,255,255,0.45)" }} />
@@ -205,7 +229,6 @@ export default function ViewfinderPage() {
             </div>
           </div>
 
-          {/* Countdown Overlay */}
           {countdown !== null && countdown > 0 && (
             <div style={{ position: "absolute", inset: 0, zIndex: 12, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", backgroundColor: "rgba(0,0,0,0.2)" }}>
               <span style={{ fontFamily: "'Space Mono', monospace", fontSize: isMobile ? "100px" : "160px", color: "#FFFFFF", textShadow: "0 4px 24px rgba(0,0,0,0.5)" }}>
@@ -230,7 +253,6 @@ export default function ViewfinderPage() {
             />
           )}
 
-          {/* Desktop-only: thumbnail strip on right */}
           {!isMobile && (
             <div style={{ position: "absolute", right: "-116px", top: 0, bottom: 0, display: "flex", flexDirection: "column", gap: "10px", justifyContent: "center" }}>
               {Array.from({ length: TOTAL_PHOTOS }).map((_, i) => (
@@ -248,7 +270,6 @@ export default function ViewfinderPage() {
           )}
         </div>
 
-        {/* Mobile-only: thumbnail strip below camera */}
         {isMobile && (
           <div style={{ display: "flex", gap: "6px", marginTop: "8px", width: "100%" }}>
             {Array.from({ length: TOTAL_PHOTOS }).map((_, i) => (
@@ -266,7 +287,6 @@ export default function ViewfinderPage() {
         )}
       </div>
 
-      {/* Shutter controls */}
       <div style={{
         marginTop: isMobile ? "16px" : "40px",
         display: "flex",
@@ -277,9 +297,8 @@ export default function ViewfinderPage() {
         padding: isMobile ? "0 16px" : "0",
       }}>
         {photoCount === 0 && !isAutoShooting && (
-          <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? "10px" : "12px", alignItems: "center", marginBottom: isMobile ? "4px" : "8px" }}>
-            {/* Timer selector */}
-            <div style={{ display: "flex", gap: isMobile ? "10px" : "12px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? "10px" : "16px", alignItems: "center", marginBottom: isMobile ? "4px" : "8px", width: "100%", maxWidth: "800px" }}>
+            <div style={{ display: "flex", gap: isMobile ? "10px" : "12px", marginTop: "8px" }}>
               {[3, 5, 10].map((val) => (
                 <button
                   key={val}
@@ -303,51 +322,49 @@ export default function ViewfinderPage() {
                 </button>
               ))}
             </div>
+          </div>
+        )}
 
-            {/* Filter selector */}
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-              {(Object.keys(FILTER_CSS) as FilmFilterType[]).map((f) => {
-                const isSelected = selectedFilter === f;
-                return (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    style={{
-                      backgroundColor: isSelected ? "#A8A39B" : "transparent",
-                      border: `1px solid ${isSelected ? "#A8A39B" : "#555"}`,
-                      color: isSelected ? "#1C1B1A" : "#A8A39B",
-                      padding: isMobile ? "0 16px" : "4px 12px",
-                      borderRadius: "4px",
-                      fontFamily: "'Space Mono', monospace",
-                      fontSize: "10px",
-                      fontWeight: isSelected ? 700 : 400,
-                      cursor: "pointer",
-                      transition: "all 150ms",
-                      height: isMobile ? "44px" : "auto",
-                    }}
-                  >
-                    {FILTER_LABELS[f]}
-                  </button>
-                );
-              })}
+        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: isMobile ? "72px" : "80px" }}>
+          {photoCount > 0 && !isRouting && (
+            <button
+              onClick={handleRetake}
+              style={{
+                position: "absolute",
+                left: isMobile ? "0px" : "calc(50% - 160px)",
+                fontFamily: "'Space Mono', monospace",
+                fontSize: "11px",
+                color: "#A8A39B",
+                backgroundColor: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                padding: "8px 16px",
+                borderRadius: "20px",
+                cursor: "pointer",
+                letterSpacing: "0.05em",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#FFF"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#A8A39B"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+            >
+              ↺ RETAKE
+            </button>
+          )}
+
+          {photoCount < TOTAL_PHOTOS ? (
+            <button
+              onClick={() => setIsAutoShooting(true)}
+              disabled={isAutoShooting || permissionDenied}
+              style={{ width: isMobile ? "72px" : "80px", height: isMobile ? "72px" : "80px", borderRadius: "50%", backgroundColor: (isAutoShooting || permissionDenied) ? "#555" : "#D24B36", border: "4px solid #FFFFFF", cursor: (isAutoShooting || permissionDenied) ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color 150ms" }}
+            >
+              <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.5)" }} />
+            </button>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B", letterSpacing: "0.1em" }}>DEVELOPING</span>
+              <span className="blink" style={{ color: "#D24B36", fontFamily: "'Space Mono', monospace", fontSize: "12px" }}>_</span>
             </div>
-          </div>
-        )}
-
-        {photoCount < TOTAL_PHOTOS ? (
-          <button
-            onClick={() => setIsAutoShooting(true)}
-            disabled={isAutoShooting || permissionDenied}
-            style={{ width: isMobile ? "72px" : "80px", height: isMobile ? "72px" : "80px", borderRadius: "50%", backgroundColor: (isAutoShooting || permissionDenied) ? "#555" : "#D24B36", border: "4px solid #FFFFFF", cursor: (isAutoShooting || permissionDenied) ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color 150ms" }}
-          >
-            <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.5)" }} />
-          </button>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "12px", color: "#A8A39B", letterSpacing: "0.1em" }}>DEVELOPING</span>
-            <span className="blink" style={{ color: "#D24B36", fontFamily: "'Space Mono', monospace", fontSize: "12px" }}>_</span>
-          </div>
-        )}
+          )}
+        </div>
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#555", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center" }}>
           {photoCount < TOTAL_PHOTOS
             ? (isAutoShooting ? `SHOOTING... ${TOTAL_PHOTOS - photoCount} REMAINING` : (isMobile ? "TAP TO START AUTO SHOOTING" : "CLICK TO START AUTO SHOOTING"))
