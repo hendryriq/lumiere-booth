@@ -18,14 +18,17 @@ export interface PhotoboothState {
   addVideo: (video: string) => void;
   clearPhotos: () => void;
   undoLastPhoto: () => void;
+  swapPhotos: (index1: number, index2: number) => void;
 
   // Darkroom selections
   selectedLayout: LayoutType;
   selectedFrame: FrameType;
   selectedFilter: FilmFilterType;
+  customText: string;
   setLayout: (layout: LayoutType) => void;
   setFrame: (frame: FrameType) => void;
   setFilter: (filter: FilmFilterType) => void;
+  setCustomText: (text: string) => void;
 
   // Final composed image
   finalImageUrl: string | null;
@@ -42,6 +45,7 @@ const initialState = {
   selectedLayout: "strip-1x4" as LayoutType,
   selectedFrame: "minimalist-mono" as FrameType,
   selectedFilter: "ilford-hp5" as FilmFilterType,
+  customText: "LUMIÈRE BOOTH — 2026",
   finalImageUrl: null,
 };
 
@@ -64,11 +68,29 @@ export const usePhotoboothStore = create<PhotoboothState>((set) => ({
       videos: state.videos.slice(0, -1),
     })),
 
+  swapPhotos: (index1, index2) =>
+    set((state) => {
+      const newPhotos = [...state.photos];
+      const newVideos = [...state.videos];
+      
+      const tempPhoto = newPhotos[index1];
+      newPhotos[index1] = newPhotos[index2];
+      newPhotos[index2] = tempPhoto;
+      
+      const tempVideo = newVideos[index1];
+      newVideos[index1] = newVideos[index2];
+      newVideos[index2] = tempVideo;
+      
+      return { photos: newPhotos, videos: newVideos };
+    }),
+
   setLayout: (layout) => set({ selectedLayout: layout }),
 
   setFrame: (frame) => set({ selectedFrame: frame }),
 
   setFilter: (filter) => set({ selectedFilter: filter }),
+
+  setCustomText: (text) => set({ customText: text }),
 
   setFinalImageUrl: (url) => set({ finalImageUrl: url }),
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore, LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
 import { applyAnalogFilter, FILTER_CSS } from "@/lib/utils";
@@ -8,7 +8,10 @@ import { useIsMobile } from "@/lib/hooks";
 
 function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selectedFrame }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined, selectedFrame: string }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const swapPhotos = usePhotoboothStore(s => s.swapPhotos);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -23,23 +26,62 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
     }
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!photoUrl) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("text/plain", index.toString());
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const srcIndexStr = e.dataTransfer.getData("text/plain");
+    const srcIndex = parseInt(srcIndexStr, 10);
+    if (!isNaN(srcIndex) && srcIndex !== index) {
+      swapPhotos(srcIndex, index);
+    }
+  };
+
   return (
     <div 
+      draggable={!!photoUrl}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       style={{
         ...style,
         backgroundColor: "#1C1B1A",
         overflow: "hidden",
         position: "relative",
-        cursor: videoUrl ? "pointer" : "default",
-        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : "none",
+        cursor: photoUrl ? "grab" : "default",
+        outline: selectedFrame === "stamp-border" ? "3px dashed #A8A39B" : (isDragOver ? "3px solid #D24B36" : "none"),
         outlineOffset: "-4px",
+        transform: isDragOver ? "scale(0.95)" : "scale(1)",
+        transition: "transform 150ms ease, opacity 150ms ease",
+        opacity: isDragOver ? 0.8 : 1,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onMouseDown={(e) => { if (photoUrl) e.currentTarget.style.cursor = "grabbing"; }}
+      onMouseUp={(e) => { if (photoUrl) e.currentTarget.style.cursor = "grab"; }}
     >
       {photoUrl ? (
         <>
-          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease" }} />
+          <img src={photoUrl} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 1, opacity: isHovered && videoUrl ? 0 : 1, transition: "opacity 300ms ease", pointerEvents: "none" }} />
           {videoUrl && (
             <video 
               ref={videoRef}
@@ -47,13 +89,13 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
               muted 
               loop 
               playsInline 
-              style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 2, opacity: isHovered ? 1 : 0, transition: "opacity 300ms ease", transform: "scaleX(-1)" }} 
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: filterCss, position: "absolute", inset: 0, zIndex: 2, opacity: isHovered ? 1 : 0, transition: "opacity 300ms ease", transform: "scaleX(-1)", pointerEvents: "none" }} 
             />
           )}
         </>
       ) : (
         <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #444", position: "absolute", inset: 0 }}>
-          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center", pointerEvents: "none" }}>
             DRAG NEGATIVE<br/>HERE
           </span>
         </div>
@@ -64,7 +106,7 @@ function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selec
 
 // --- Preview Canvas ---
 function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
-  const { photos, videos, selectedLayout, selectedFrame, selectedFilter } = usePhotoboothStore();
+  const { photos, videos, selectedLayout, selectedFrame, selectedFilter, customText } = usePhotoboothStore();
   const isMobile = useIsMobile();
 
   const borderStyle = {
@@ -103,7 +145,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "200px" }}>
             {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "150px", width: "200px" }))}
             <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
+              {customText}
             </div>
           </div>
         )}
@@ -114,7 +156,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
               {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "175px" }))}
             </div>
             <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
+              {customText}
             </div>
           </div>
         )}
@@ -125,7 +167,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
             <div style={{ padding: "20px 8px 8px", display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ height: "1px", backgroundColor: borderStyle.accent, opacity: 0.15, marginBottom: "8px" }} />
               <div style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", color: borderStyle.accent, opacity: 0.4, textAlign: "center" }}>
-                LUMIÈRE
+                {customText}
               </div>
             </div>
           </div>
@@ -138,7 +180,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
               {[1, 2, 3].map((i) => renderPhoto(i, { height: "100px", flex: 1 }))}
             </div>
             <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
+              {customText}
             </div>
           </div>
         )}
@@ -149,7 +191,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
               {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: isMobile ? "90px" : "150px", flex: 1 }))}
             </div>
             <div style={{ textAlign: "center", padding: "4px 0 0", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
+              {customText}
             </div>
           </div>
         )}
@@ -158,7 +200,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "280px" }}>
             {[0, 1, 2, 3].map((i) => renderPhoto(i, { height: "120px", width: "280px" }))}
             <div style={{ textAlign: "center", padding: "8px 0 2px", fontFamily: "'Space Mono', monospace", fontSize: "9px", color: borderStyle.accent, letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.6 }}>
-              LUMIÈRE BOOTH — {new Date().getFullYear()}
+              {customText}
             </div>
           </div>
         )}
@@ -170,9 +212,15 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
 // --- Main Page ---
 export default function DarkroomPage() {
   const router = useRouter();
-  const { photos, selectedFilter, setFinalImageUrl } = usePhotoboothStore();
+  const { photos, selectedFilter, setFinalImageUrl, customText, setCustomText } = usePhotoboothStore();
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (photos.length === 0) {
+      router.replace("/");
+    }
+  }, [photos.length, router]);
 
   const handleDevelop = async () => {
     // Use html2canvas to capture the preview
@@ -222,13 +270,35 @@ export default function DarkroomPage() {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "24px" }}>
           <span style={{ fontFamily: "'Fraunces', serif", fontSize: isMobile ? "18px" : "22px", color: "#1C1B1A", letterSpacing: "-0.01em" }}>LUMIÈRE BOOTH</span>
-          {!isMobile && <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.1em", textTransform: "uppercase" }}>/ THE DARKROOM</span>}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "16px" }}>
           {!isMobile && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginRight: "16px" }}>
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                TEXT:
+              </span>
+              <input
+                type="text"
+                value={usePhotoboothStore.getState().customText}
+                onChange={(e) => usePhotoboothStore.getState().setCustomText(e.target.value)}
+                maxLength={40}
+                style={{
+                  backgroundColor: "transparent",
+                  border: "1px solid #A8A39B",
+                  color: "#1C1B1A",
+                  fontFamily: "'Space Mono', monospace",
+                  fontSize: "11px",
+                  padding: "4px 8px",
+                  width: "180px",
+                  outline: "none"
+                }}
+              />
+            </div>
+          )}
+          {!isMobile && (
             <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              {photos.length}/4 FRAMES LOADED
+              {photos.length}/4 FRAMES
             </span>
           )}
           <button
@@ -251,6 +321,31 @@ export default function DarkroomPage() {
           </button>
         </div>
       </div>
+      
+      {isMobile && (
+        <div style={{ padding: "16px 16px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", color: "#A8A39B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            CUSTOM TEXT
+          </span>
+          <input
+            type="text"
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            maxLength={40}
+            style={{
+              backgroundColor: "transparent",
+              border: "1px solid #A8A39B",
+              color: "#1C1B1A",
+              fontFamily: "'Space Mono', monospace",
+              fontSize: "12px",
+              padding: "8px 12px",
+              width: "100%",
+              outline: "none",
+              borderRadius: 0
+            }}
+          />
+        </div>
+      )}
 
       {/* Body: Fullscreen canvas */}
       <div style={{

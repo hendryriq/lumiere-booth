@@ -272,7 +272,7 @@ export default function SetupPage() {
   );
 
   return (
-    <main style={{ height: "100vh", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column" }}>
+    <main style={{ height: isMobile ? "auto" : "100vh", minHeight: "100vh", backgroundColor: "#F4F1EA", display: "flex", flexDirection: "column" }}>
       {/* Top header bar */}
       <div style={{ flexShrink: 0, minHeight: "64px", borderBottom: "2px solid #1C1B1A", display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "12px 16px" : "0 32px", backgroundColor: "#F4F1EA", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "24px" }}>
@@ -289,7 +289,7 @@ export default function SetupPage() {
       </div>
 
       {/* Split Body */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: isMobile ? "column" : "row" }}>
+      <div style={{ display: "flex", flex: 1, overflow: isMobile ? "visible" : "hidden", flexDirection: isMobile ? "column" : "row" }}>
         
         {/* Left pane: Smart Mirror Live Layout Preview */}
         <div style={{ 
@@ -321,7 +321,7 @@ export default function SetupPage() {
         </div>
 
         {/* Right pane: Setup Options */}
-        <div style={{ flex: isMobile ? "none" : 1, width: isMobile ? "100%" : "500px", maxWidth: isMobile ? "none" : "600px", overflowY: "auto", padding: isMobile ? "24px 16px" : "40px 32px", backgroundColor: "#F4F1EA" }}>
+        <div style={{ flex: isMobile ? "none" : 1, width: isMobile ? "100%" : "500px", maxWidth: isMobile ? "none" : "600px", overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "24px 16px" : "40px 32px", backgroundColor: "#F4F1EA" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
           
           {/* Step 1: Filter */}
