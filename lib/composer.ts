@@ -1,6 +1,7 @@
-import { LayoutType, FrameType } from "@/store/photobooth";
+import { LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
+import { applyAnalogFilterRect } from "./utils";
 
-const SCALE = 2; // Retina quality
+const SCALE = 6; // High-res print quality
 
 // Load a base64 dataURL as an HTMLImageElement
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -12,28 +13,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-// Apply grayscale + contrast to canvas pixels
-function applyGrayscaleContrast(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  const imageData = ctx.getImageData(x, y, w, h);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-    const boosted = Math.max(0, Math.min(255, ((avg / 255 - 0.5) * 1.2 + 0.5) * 255));
-    data[i] = boosted;
-    data[i + 1] = boosted;
-    data[i + 2] = boosted;
-  }
-  ctx.putImageData(imageData, x, y);
-}
-
-// Draw a single photo (cover-fit) into a rect, then apply filter
+// Removed applyGrayscaleContrast in favor of applyAnalogFilterRect from utils
 function drawPhoto(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   dx: number,
   dy: number,
   dw: number,
-  dh: number
+  dh: number,
+  filter: FilmFilterType
 ) {
   const scale = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
   const sw = dw / scale;
@@ -42,7 +30,7 @@ function drawPhoto(
   const sy = (img.naturalHeight - sh) / 2;
 
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-  applyGrayscaleContrast(ctx, dx, dy, dw, dh);
+  applyAnalogFilterRect(ctx, filter, dx, dy, dw, dh);
 }
 
 // Draw empty placeholder box
@@ -133,7 +121,9 @@ function drawLabel(
 export async function composePhotoStrip(
   photos: string[],
   layout: LayoutType,
-  frame: FrameType
+  frame: FrameType,
+  filter: FilmFilterType,
+  customText: string
 ): Promise<string> {
   const images = await Promise.all(
     photos.map((src) => (src ? loadImage(src) : Promise.resolve(null)))
@@ -146,7 +136,7 @@ export async function composePhotoStrip(
   };
   const { bg, accent } = frameColors[frame];
 
-  const label = `LUMIÈRE BOOTH — ${new Date().getFullYear()}`;
+  const label = customText || `LUMIÈRE BOOTH — ${new Date().getFullYear()}`;
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
@@ -172,7 +162,7 @@ export async function composePhotoStrip(
     for (let i = 0; i < 4; i++) {
       const x = pad;
       const y = pad + i * (photoH + gap);
-      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH);
+      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH, filter);
       else drawPlaceholder(ctx, x, y, photoW, photoH);
     }
 
@@ -203,7 +193,7 @@ export async function composePhotoStrip(
       const [col, row] = positions[i];
       const x = pad + col * (photoW + gap);
       const y = pad + row * (photoH + gap);
-      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH);
+      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH, filter);
       else drawPlaceholder(ctx, x, y, photoW, photoH);
     }
 
@@ -226,7 +216,7 @@ export async function composePhotoStrip(
     if (frame === "stamp-border") drawStampBorder(ctx, 0, 0, canvas.width, canvas.height);
     if (frame === "vintage-floral") drawFloralCorners(ctx, 0, 0, canvas.width, canvas.height);
 
-    if (images[0]) drawPhoto(ctx, images[0]!, pad, pad, photoW, photoH);
+    if (images[0]) drawPhoto(ctx, images[0]!, pad, pad, photoW, photoH, filter);
     else drawPlaceholder(ctx, pad, pad, photoW, photoH);
 
     // Divider line
@@ -244,7 +234,7 @@ export async function composePhotoStrip(
     ctx.fillStyle = accent;
     ctx.globalAlpha = 0.35;
     ctx.textAlign = "center";
-    ctx.fillText("LUMIÈRE", canvas.width / 2, photoH + pad + 50 * SCALE);
+    ctx.fillText(label, canvas.width / 2, photoH + pad + 50 * SCALE);
     ctx.globalAlpha = 1;
     ctx.textAlign = "left";
   }
@@ -268,13 +258,13 @@ export async function composePhotoStrip(
     if (frame === "stamp-border") drawStampBorder(ctx, 0, 0, canvas.width, canvas.height);
     if (frame === "vintage-floral") drawFloralCorners(ctx, 0, 0, canvas.width, canvas.height);
 
-    if (images[0]) drawPhoto(ctx, images[0]!, pad, pad, heroW, heroH);
+    if (images[0]) drawPhoto(ctx, images[0]!, pad, pad, heroW, heroH, filter);
     else drawPlaceholder(ctx, pad, pad, heroW, heroH);
 
     for (let i = 1; i < 4; i++) {
         const x = pad + (i - 1) * (smallW + gap);
         const y = pad + heroH + gap;
-        if (images[i]) drawPhoto(ctx, images[i]!, x, y, smallW, smallH);
+        if (images[i]) drawPhoto(ctx, images[i]!, x, y, smallW, smallH, filter);
         else drawPlaceholder(ctx, x, y, smallW, smallH);
     }
     
@@ -301,7 +291,7 @@ export async function composePhotoStrip(
     for (let i = 0; i < 4; i++) {
       const x = pad + i * (photoW + gap);
       const y = pad;
-      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH);
+      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH, filter);
       else drawPlaceholder(ctx, x, y, photoW, photoH);
     }
     
@@ -328,7 +318,7 @@ export async function composePhotoStrip(
     for (let i = 0; i < 4; i++) {
       const x = pad;
       const y = pad + i * (photoH + gap);
-      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH);
+      if (images[i]) drawPhoto(ctx, images[i]!, x, y, photoW, photoH, filter);
       else drawPlaceholder(ctx, x, y, photoW, photoH);
     }
     
