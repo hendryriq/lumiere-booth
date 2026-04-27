@@ -26,17 +26,8 @@ export default function LobbyPage() {
         <div className="screen-flash" style={{ position: "fixed", inset: 0, backgroundColor: "#FFFFFF", zIndex: 1000 }} />
       )}
 
-      {/* Top rule */}
-      <div style={{ position: "absolute", top: pad, left: pad, right: pad, display: "flex", alignItems: "center", gap: "16px" }}>
-        <div style={{ flex: 1, height: "2px", backgroundColor: "#1C1B1A" }} />
-        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.15em", color: "#A8A39B", textTransform: "uppercase", whiteSpace: "nowrap" }}>EST. 1972</span>
-        <div style={{ flex: 1, height: "2px", backgroundColor: "#1C1B1A" }} />
-      </div>
-
       <div style={{ textAlign: "center", maxWidth: "600px", width: "100%" }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.2em", color: "#A8A39B", textTransform: "uppercase", marginBottom: "12px" }}>Atelier de Photographie</div>
         <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(48px, 8vw, 80px)", fontWeight: 400, letterSpacing: "-0.02em", color: "#1C1B1A", lineHeight: 1, margin: 0 }}>LUMIÈRE</h1>
-        <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(48px, 8vw, 80px)", fontWeight: 400, letterSpacing: "-0.02em", color: "#1C1B1A", lineHeight: 1, marginBottom: "32px" }}>BOOTH</h1>
         <p style={{ fontFamily: "'Lora', serif", fontSize: isMobile ? "15px" : "16px", color: "#A8A39B", lineHeight: "1.6", marginBottom: "48px" }}>
           Analog memories, digitally preserved.<br />Four frames. One roll. Yours forever.
         </p>
@@ -52,6 +43,12 @@ export default function LobbyPage() {
           </button>
           <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.1em", color: "#A8A39B", textTransform: "uppercase" }}>⚠ REQUIRES WEBCAM ACCESS</span>
         </div>
+      </div>
+      {/* Bottom rule / Watermark */}
+      <div style={{ position: "absolute", bottom: pad, left: pad, right: pad, display: "flex", alignItems: "center", gap: "16px" }}>
+        <div style={{ flex: 1, height: "2px", backgroundColor: "#1C1B1A" }} />
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "11px", letterSpacing: "0.15em", color: "#A8A39B", textTransform: "uppercase", whiteSpace: "nowrap" }}>by Ariq and "friend"</span>
+        <div style={{ flex: 1, height: "2px", backgroundColor: "#1C1B1A" }} />
       </div>
     </main>
   );

@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePhotoboothStore, LayoutType, FrameType, FilmFilterType } from "@/store/photobooth";
 import { applyAnalogFilter, FILTER_CSS } from "@/lib/utils";
+import { composePhotoStrip } from "@/lib/composer";
 import { useIsMobile } from "@/lib/hooks";
 
 function DarkroomPhotoFrame({ index, style, filterCss, photoUrl, videoUrl, selectedFrame }: { index: number, style: React.CSSProperties, filterCss: string, photoUrl: string | undefined, videoUrl: string | undefined, selectedFrame: string }) {
@@ -212,7 +213,7 @@ function PreviewCanvas({ ref }: { ref: React.Ref<HTMLDivElement> }) {
 // --- Main Page ---
 export default function DarkroomPage() {
   const router = useRouter();
-  const { photos, selectedFilter, setFinalImageUrl, customText, setCustomText } = usePhotoboothStore();
+  const { photos, videos, selectedLayout, selectedFrame, selectedFilter, setFinalImageUrl, customText, setCustomText } = usePhotoboothStore();
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
@@ -223,25 +224,19 @@ export default function DarkroomPage() {
   }, [photos.length, router]);
 
   const handleDevelop = async () => {
-    // Use html2canvas to capture the preview
-    if (typeof window !== "undefined") {
-      try {
-        const html2canvas = (await import("html2canvas")).default;
-        const canvas = await html2canvas(previewRef.current!, {
-          backgroundColor: "#F4F1EA",
-          scale: 4, // Increased from 2 to 4 for retina-grade print resolution
-          useCORS: true,
-          logging: false,
-          allowTaint: true,
-        });
-        applyAnalogFilter(canvas, selectedFilter);
-        const dataUrl = canvas.toDataURL("image/png");
-        setFinalImageUrl(dataUrl);
-        router.push("/print-tray");
-      } catch {
-        // Fallback: route without image
-        router.push("/print-tray");
-      }
+    try {
+      const dataUrl = await composePhotoStrip(
+        photos,
+        selectedLayout,
+        selectedFrame,
+        selectedFilter,
+        customText
+      );
+      setFinalImageUrl(dataUrl);
+      router.push("/print-tray");
+    } catch (e) {
+      console.error("Failed to compose photo strip", e);
+      router.push("/print-tray");
     }
   };
 
